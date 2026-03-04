@@ -1,0 +1,60 @@
+## .NET / C# / ASP.NET Core
+
+# Build outputs
+bin/
+obj/
+out/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Publish output
+publish/
+**/Properties/PublishProfiles/
+
+# Runtime & secrets
+appsettings.Local.json
+appsettings.*.local.json
+*.pfx
+*.p12
+secrets.json
+
+# Environment variables (never commit real .env)
+.env
+!.env.example
+
+# Logs
+logs/
+*.log
+Serilog/
+
+# Test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+
+# Rider / JetBrains
+.idea/
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
