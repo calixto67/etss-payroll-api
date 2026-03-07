@@ -28,8 +28,16 @@ public static class DependencyInjection
             options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
         });
 
+        services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IEmployeeStatusHistoryRepository, EmployeeStatusHistoryRepository>();
+        services.AddScoped<IEmergencyContactRepository, EmergencyContactRepository>();
+        services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>();
+        services.AddScoped<IBranchRepository, BranchRepository>();
         services.AddScoped<IPayrollRepository, PayrollRepository>();
+        services.AddScoped<ILeaveRepository, LeaveRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

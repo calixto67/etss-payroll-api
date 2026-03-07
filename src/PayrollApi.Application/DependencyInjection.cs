@@ -13,8 +13,12 @@ public static class DependencyInjection
         services.AddAutoMapper(Assembly.GetExecutingAssembly());
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
+        services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<ICompanySettingsService, CompanySettingsService>();
+        services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<IPayrollService, PayrollService>();
+        services.AddScoped<ILeaveService, LeaveService>();
 
         return services;
     }

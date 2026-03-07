@@ -7,8 +7,16 @@ namespace PayrollApi.Domain.Interfaces;
 /// </summary>
 public interface IUnitOfWork : IDisposable
 {
-    IEmployeeRepository Employees { get; }
-    IPayrollRepository PayrollRecords { get; }
+    IUserRepository                  Users                  { get; }
+    IEmployeeRepository              Employees              { get; }
+    IEmployeeStatusHistoryRepository EmployeeStatusHistory  { get; }
+    IEmergencyContactRepository      EmergencyContacts      { get; }
+    IEmployeeDocumentRepository      EmployeeDocuments      { get; }
+    IBranchRepository                Branches               { get; }
+    IPayrollRepository               PayrollRecords         { get; }
+    ILeaveRepository                 Leave                  { get; }
+    IRoleRepository                  Roles                  { get; }
+    ICompanySettingsRepository       CompanySettings        { get; }
 
     Task<int> CommitAsync(CancellationToken cancellationToken = default);
     Task RollbackAsync(CancellationToken cancellationToken = default);

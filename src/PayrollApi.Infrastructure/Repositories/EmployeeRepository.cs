@@ -13,10 +13,23 @@ public class EmployeeRepository : BaseRepository<Employee>, IEmployeeRepository
         await _dbSet
             .Include(e => e.Department)
             .Include(e => e.Position)
+            .Include(e => e.Manager)
+            .Include(e => e.Branch)
             .FirstOrDefaultAsync(e => e.EmployeeCode == employeeCode, cancellationToken);
 
     public async Task<Employee?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) =>
         await _dbSet.FirstOrDefaultAsync(e => e.Email == email, cancellationToken);
+
+    public async Task<Employee?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default) =>
+        await _dbSet
+            .Include(e => e.Department)
+            .Include(e => e.Position)
+            .Include(e => e.Manager)
+            .Include(e => e.Branch)
+            .Include(e => e.StatusHistory.OrderByDescending(h => h.ChangedAt))
+            .Include(e => e.EmergencyContacts)
+            .Include(e => e.Documents)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
     public async Task<(IEnumerable<Employee> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, string? search, int? departmentId,
@@ -25,14 +38,17 @@ public class EmployeeRepository : BaseRepository<Employee>, IEmployeeRepository
         var query = _dbSet
             .Include(e => e.Department)
             .Include(e => e.Position)
+            .Include(e => e.Manager)
+            .Include(e => e.Branch)
             .AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(e =>
-                e.FirstName.Contains(search) ||
-                e.LastName.Contains(search) ||
-                e.EmployeeCode.Contains(search) ||
-                e.Email.Contains(search));
+                e.FirstName.Contains(search)   ||
+                e.LastName.Contains(search)    ||
+                e.EmployeeCode.Contains(search)||
+                e.Email.Contains(search)       ||
+                e.MobileNumber.Contains(search));
 
         if (departmentId.HasValue)
             query = query.Where(e => e.DepartmentId == departmentId.Value);
@@ -58,5 +74,10 @@ public class EmployeeRepository : BaseRepository<Employee>, IEmployeeRepository
     public async Task<bool> IsEmployeeCodeUniqueAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default) =>
         !await _dbSet.AnyAsync(e =>
             e.EmployeeCode == code && (!excludeId.HasValue || e.Id != excludeId.Value),
+            cancellationToken);
+
+    public async Task<bool> HasActiveSubordinatesAsync(int managerId, CancellationToken cancellationToken = default) =>
+        await _dbSet.AnyAsync(e =>
+            e.ManagerId == managerId && e.Status == EmploymentStatus.Active,
             cancellationToken);
 }

@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using PayrollApi.API.Middleware;
+using PayrollApi.API.Services;
 using PayrollApi.Application;
+using PayrollApi.Application.Services.Interfaces;
 using PayrollApi.Infrastructure;
 using Serilog;
 using Serilog.Events;
@@ -140,6 +142,8 @@ try
         });
     });
 
+    builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
     builder.Services.AddHealthChecks()
         .AddDbContextCheck<PayrollApi.Infrastructure.Data.AppDbContext>("database");
 
@@ -169,12 +173,22 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseStaticFiles(); // serves wwwroot (logo uploads, etc.)
     app.UseCors("AllowAngularClient");
     app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
     app.MapHealthChecks("/health");
+
+    // ── Seed default data in Development ─────────────────────────────────────
+    if (app.Environment.IsDevelopment())
+    {
+        using var scope = app.Services.CreateScope();
+        var db     = scope.ServiceProvider.GetRequiredService<PayrollApi.Infrastructure.Data.AppDbContext>();
+        var seeder = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        await PayrollApi.Infrastructure.Data.DbSeeder.SeedAsync(db, seeder);
+    }
 
     app.Run();
 }
