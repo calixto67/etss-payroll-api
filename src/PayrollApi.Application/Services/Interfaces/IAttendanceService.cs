@@ -13,6 +13,8 @@ public interface IAttendanceService
     Task<int> ImportAsync(int periodId, IEnumerable<ImportAttendanceRowDto> rows, string createdBy, CancellationToken ct);
     Task<IEnumerable<AttendanceDetailDto>> GetDetailsAsync(int attendanceId, CancellationToken ct);
     Task<AttendanceDto> UpdateDetailsAsync(int attendanceId, IEnumerable<UpdateAttendanceDetailDto> details, string updatedBy, CancellationToken ct);
+    Task<AttendanceDto> ReprocessDetailsAsync(int attendanceId, string updatedBy, CancellationToken ct);
     Task<int> ImportRawPunchesAsync(int periodId, IEnumerable<ImportRawPunchDto> punches, string createdBy, CancellationToken ct);
     Task<IEnumerable<ScheduleCheckResultDto>> CheckEmployeeSchedulesAsync(IEnumerable<string> employeeCodes, CancellationToken ct);
+    Task<IEnumerable<EmployeeScheduleDayDto>> GetEmployeeScheduleAsync(int employeeId, CancellationToken ct);
 }

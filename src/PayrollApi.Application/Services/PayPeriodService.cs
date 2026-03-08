@@ -23,9 +23,12 @@ public class PayPeriodService : IPayPeriodService
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public DateTime PayDate { get; set; }
-        public string PeriodType { get; set; } = "";
+        public int PeriodType { get; set; }
         public string Status { get; set; } = "";
         public bool IsClosed { get; set; }
+        public bool DeductSss { get; set; }
+        public bool DeductPhilHealth { get; set; }
+        public bool DeductPagIbig { get; set; }
         public int PayrollRecordCount { get; set; }
         public DateTime CreatedAt { get; set; }
     }
@@ -55,6 +58,14 @@ public class PayPeriodService : IPayPeriodService
         };
     }
 
+    private static string PeriodTypeName(int pt) => pt switch
+    {
+        1 => "SemiMonthly",
+        2 => "Monthly",
+        3 => "Weekly",
+        _ => "Unknown"
+    };
+
     private static PayPeriodDto MapRow(PayPeriodRow r) => new()
     {
         Id            = r.Id,
@@ -63,9 +74,12 @@ public class PayPeriodService : IPayPeriodService
         StartDate     = r.StartDate,
         EndDate       = r.EndDate,
         PayDate       = r.PayDate,
-        PeriodType    = r.PeriodType,
-        Status        = r.Status?.ToLower() ?? "",
+        PeriodType    = PeriodTypeName(r.PeriodType),
+        Status        = r.Status ?? "",
         IsClosed      = r.IsClosed,
+        DeductSss       = r.DeductSss,
+        DeductPhilHealth = r.DeductPhilHealth,
+        DeductPagIbig   = r.DeductPagIbig,
         EmployeeCount = r.PayrollRecordCount,
         CreatedAt     = r.CreatedAt,
     };
@@ -125,6 +139,9 @@ public class PayPeriodService : IPayPeriodService
                     EndDate    = dto.EndDate,
                     PayDate    = dto.PayDate,
                     PeriodType = (int)dto.PeriodType,
+                    DeductSss       = dto.DeductSss,
+                    DeductPhilHealth = dto.DeductPhilHealth,
+                    DeductPagIbig   = dto.DeductPagIbig,
                     CreatedBy  = createdBy,
                 },
                 ct)

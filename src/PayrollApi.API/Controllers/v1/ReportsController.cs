@@ -84,40 +84,44 @@ public class ReportsController : BaseController
     [HttpGet("attendance/daily")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<DailyAttendanceRowDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDailyAttendance(
-        [FromQuery] int periodId, [FromQuery] int? departmentId,
-        [FromQuery] int? branchId, [FromQuery] int? employeeId, CancellationToken ct)
+        [FromQuery] DateTime startDate, [FromQuery] DateTime endDate,
+        [FromQuery] int? departmentId, [FromQuery] int? branchId,
+        [FromQuery] int? employeeId, CancellationToken ct)
     {
-        var rows = await _attendanceReport.GetDailyAsync(periodId, departmentId, branchId, employeeId, ct);
+        var rows = await _attendanceReport.GetDailyAsync(startDate, endDate, departmentId, branchId, employeeId, ct);
         return Ok(ApiResponse<IEnumerable<DailyAttendanceRowDto>>.Ok(rows));
     }
 
     [HttpGet("attendance/tardiness")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<TardinessRowDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTardiness(
-        [FromQuery] int periodId, [FromQuery] int? departmentId,
-        [FromQuery] int? branchId, [FromQuery] int? employeeId, CancellationToken ct)
+        [FromQuery] DateTime startDate, [FromQuery] DateTime endDate,
+        [FromQuery] int? departmentId, [FromQuery] int? branchId,
+        [FromQuery] int? employeeId, CancellationToken ct)
     {
-        var rows = await _attendanceReport.GetTardinessAsync(periodId, departmentId, branchId, employeeId, ct);
+        var rows = await _attendanceReport.GetTardinessAsync(startDate, endDate, departmentId, branchId, employeeId, ct);
         return Ok(ApiResponse<IEnumerable<TardinessRowDto>>.Ok(rows));
     }
 
     [HttpGet("attendance/absenteeism")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<AbsenteeismRowDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAbsenteeism(
-        [FromQuery] int periodId, [FromQuery] int? departmentId,
-        [FromQuery] int? branchId, [FromQuery] int? employeeId, CancellationToken ct)
+        [FromQuery] DateTime startDate, [FromQuery] DateTime endDate,
+        [FromQuery] int? departmentId, [FromQuery] int? branchId,
+        [FromQuery] int? employeeId, CancellationToken ct)
     {
-        var rows = await _attendanceReport.GetAbsenteeismAsync(periodId, departmentId, branchId, employeeId, ct);
+        var rows = await _attendanceReport.GetAbsenteeismAsync(startDate, endDate, departmentId, branchId, employeeId, ct);
         return Ok(ApiResponse<IEnumerable<AbsenteeismRowDto>>.Ok(rows));
     }
 
     [HttpGet("attendance/overtime")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<OvertimeRowDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOvertime(
-        [FromQuery] int periodId, [FromQuery] int? departmentId,
-        [FromQuery] int? branchId, [FromQuery] int? employeeId, CancellationToken ct)
+        [FromQuery] DateTime startDate, [FromQuery] DateTime endDate,
+        [FromQuery] int? departmentId, [FromQuery] int? branchId,
+        [FromQuery] int? employeeId, CancellationToken ct)
     {
-        var rows = await _attendanceReport.GetOvertimeAsync(periodId, departmentId, branchId, employeeId, ct);
+        var rows = await _attendanceReport.GetOvertimeAsync(startDate, endDate, departmentId, branchId, employeeId, ct);
         return Ok(ApiResponse<IEnumerable<OvertimeRowDto>>.Ok(rows));
     }
 
@@ -134,10 +138,11 @@ public class ReportsController : BaseController
     [HttpGet("attendance/summary")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<AttendanceSummaryRowDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAttendanceSummary(
-        [FromQuery] int periodId, [FromQuery] int? departmentId,
-        [FromQuery] int? branchId, [FromQuery] int? employeeId, CancellationToken ct)
+        [FromQuery] DateTime startDate, [FromQuery] DateTime endDate,
+        [FromQuery] int? departmentId, [FromQuery] int? branchId,
+        [FromQuery] int? employeeId, CancellationToken ct)
     {
-        var rows = await _attendanceReport.GetSummaryAsync(periodId, departmentId, branchId, employeeId, ct);
+        var rows = await _attendanceReport.GetSummaryAsync(startDate, endDate, departmentId, branchId, employeeId, ct);
         return Ok(ApiResponse<IEnumerable<AttendanceSummaryRowDto>>.Ok(rows));
     }
 }

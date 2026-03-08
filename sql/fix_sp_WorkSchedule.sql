@@ -8,6 +8,18 @@ CREATE OR ALTER PROCEDURE dbo.sp_WorkSchedule
     @EmployeeIds   NVARCHAR(MAX) = NULL,
     @EmployeeId    INT = NULL,
     @EffectiveDate DATE = NULL,
+    @RegularHoursPerDay    DECIMAL(18,2) = 8.0,
+    @HalfDayThresholdHours DECIMAL(18,2) = 4.0,
+    @GracePeriodMinutes    INT = 15,
+    @BreakDurationMinutes  INT = 60,
+    @NightDiffStartTime    TIME = '22:00:00',
+    @NightDiffEndTime      TIME = '06:00:00',
+    @NightDiffRate         DECIMAL(18,2) = 1.10,
+    @OTMinimumMinutes      INT = 30,
+    @OTStartAfterMinutes   INT = 0,
+    @OTRequiresApproval    BIT = 1,
+    @AllowNightDifferential BIT = 1,
+    @AllowOvertime          BIT = 1,
     @CreatedBy     NVARCHAR(256) = NULL,
     @UpdatedBy     NVARCHAR(256) = NULL,
     @DeletedBy     NVARCHAR(256) = NULL
@@ -20,6 +32,10 @@ BEGIN
     BEGIN
         BEGIN TRY
             SELECT ws.Id, ws.Name, ws.Description, ws.IsDefault,
+                ws.RegularHoursPerDay, ws.HalfDayThresholdHours, ws.GracePeriodMinutes, ws.BreakDurationMinutes,
+                ws.NightDiffStartTime, ws.NightDiffEndTime, ws.NightDiffRate,
+                ws.OTMinimumMinutes, ws.OTStartAfterMinutes, ws.OTRequiresApproval,
+                ws.AllowNightDifferential, ws.AllowOvertime,
                 (SELECT COUNT(DISTINCT es.EmployeeId) FROM EmployeeSchedules es WHERE es.WorkScheduleId = ws.Id AND es.EndDate IS NULL AND es.IsDeleted = 0) AS EmployeeCount,
                 wsd.Id AS DayId, wsd.DayOfWeek, wsd.IsRestDay, wsd.ShiftStart, wsd.ShiftEnd, wsd.BreakStart, wsd.BreakEnd
             FROM WorkSchedules ws
@@ -36,6 +52,10 @@ BEGIN
     BEGIN
         BEGIN TRY
             SELECT ws.Id, ws.Name, ws.Description, ws.IsDefault,
+                ws.RegularHoursPerDay, ws.HalfDayThresholdHours, ws.GracePeriodMinutes, ws.BreakDurationMinutes,
+                ws.NightDiffStartTime, ws.NightDiffEndTime, ws.NightDiffRate,
+                ws.OTMinimumMinutes, ws.OTStartAfterMinutes, ws.OTRequiresApproval,
+                ws.AllowNightDifferential, ws.AllowOvertime,
                 (SELECT COUNT(DISTINCT es.EmployeeId) FROM EmployeeSchedules es WHERE es.WorkScheduleId = ws.Id AND es.EndDate IS NULL AND es.IsDeleted = 0) AS EmployeeCount,
                 wsd.Id AS DayId, wsd.DayOfWeek, wsd.IsRestDay, wsd.ShiftStart, wsd.ShiftEnd, wsd.BreakStart, wsd.BreakEnd
             FROM WorkSchedules ws
@@ -59,8 +79,18 @@ BEGIN
             IF @IsDefault = 1
                 UPDATE WorkSchedules SET IsDefault = 0 WHERE IsDefault = 1 AND IsDeleted = 0;
 
-            INSERT INTO WorkSchedules (Name, Description, IsDefault, CreatedAt, CreatedBy)
-            VALUES (@Name, @Description, @IsDefault, GETDATE(), @CreatedBy);
+            INSERT INTO WorkSchedules (Name, Description, IsDefault,
+                RegularHoursPerDay, HalfDayThresholdHours, GracePeriodMinutes, BreakDurationMinutes,
+                NightDiffStartTime, NightDiffEndTime, NightDiffRate,
+                OTMinimumMinutes, OTStartAfterMinutes, OTRequiresApproval,
+                AllowNightDifferential, AllowOvertime,
+                CreatedAt, CreatedBy)
+            VALUES (@Name, @Description, @IsDefault,
+                @RegularHoursPerDay, @HalfDayThresholdHours, @GracePeriodMinutes, @BreakDurationMinutes,
+                @NightDiffStartTime, @NightDiffEndTime, @NightDiffRate,
+                @OTMinimumMinutes, @OTStartAfterMinutes, @OTRequiresApproval,
+                @AllowNightDifferential, @AllowOvertime,
+                GETDATE(), @CreatedBy);
 
             DECLARE @WsCrSchedId INT = SCOPE_IDENTITY();
 
@@ -79,6 +109,10 @@ BEGIN
 
             -- Return joined result
             SELECT ws.Id, ws.Name, ws.Description, ws.IsDefault,
+                ws.RegularHoursPerDay, ws.HalfDayThresholdHours, ws.GracePeriodMinutes, ws.BreakDurationMinutes,
+                ws.NightDiffStartTime, ws.NightDiffEndTime, ws.NightDiffRate,
+                ws.OTMinimumMinutes, ws.OTStartAfterMinutes, ws.OTRequiresApproval,
+                ws.AllowNightDifferential, ws.AllowOvertime,
                 0 AS EmployeeCount,
                 wsd.Id AS DayId, wsd.DayOfWeek, wsd.IsRestDay, wsd.ShiftStart, wsd.ShiftEnd, wsd.BreakStart, wsd.BreakEnd
             FROM WorkSchedules ws
@@ -122,6 +156,11 @@ BEGIN
             FROM OPENJSON(@DaysJson) d;
 
             UPDATE WorkSchedules SET Name=@Name, Description=@Description, IsDefault=@IsDefault,
+                RegularHoursPerDay=@RegularHoursPerDay, HalfDayThresholdHours=@HalfDayThresholdHours,
+                GracePeriodMinutes=@GracePeriodMinutes, BreakDurationMinutes=@BreakDurationMinutes,
+                NightDiffStartTime=@NightDiffStartTime, NightDiffEndTime=@NightDiffEndTime, NightDiffRate=@NightDiffRate,
+                OTMinimumMinutes=@OTMinimumMinutes, OTStartAfterMinutes=@OTStartAfterMinutes, OTRequiresApproval=@OTRequiresApproval,
+                AllowNightDifferential=@AllowNightDifferential, AllowOvertime=@AllowOvertime,
                 UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE()
             WHERE Id = @Id;
 
@@ -129,6 +168,10 @@ BEGIN
 
             -- Return joined result
             SELECT ws.Id, ws.Name, ws.Description, ws.IsDefault,
+                ws.RegularHoursPerDay, ws.HalfDayThresholdHours, ws.GracePeriodMinutes, ws.BreakDurationMinutes,
+                ws.NightDiffStartTime, ws.NightDiffEndTime, ws.NightDiffRate,
+                ws.OTMinimumMinutes, ws.OTStartAfterMinutes, ws.OTRequiresApproval,
+                ws.AllowNightDifferential, ws.AllowOvertime,
                 (SELECT COUNT(DISTINCT es.EmployeeId) FROM EmployeeSchedules es WHERE es.WorkScheduleId = ws.Id AND es.EndDate IS NULL AND es.IsDeleted = 0) AS EmployeeCount,
                 wsd.Id AS DayId, wsd.DayOfWeek, wsd.IsRestDay, wsd.ShiftStart, wsd.ShiftEnd, wsd.BreakStart, wsd.BreakEnd
             FROM WorkSchedules ws
@@ -152,6 +195,9 @@ BEGIN
 
             IF EXISTS (SELECT 1 FROM EmployeeSchedules WHERE WorkScheduleId = @Id AND EndDate IS NULL AND IsDeleted = 0)
             BEGIN RAISERROR('Cannot delete: schedule has active employee assignments.', 16, 1); RETURN; END
+
+            IF EXISTS (SELECT 1 FROM Attendances WHERE WorkScheduleId = @Id AND IsDeleted = 0)
+            BEGIN RAISERROR('Cannot delete: schedule has been used in attendance records.', 16, 1); RETURN; END
 
             UPDATE WorkSchedules SET IsDeleted=1, DeletedAt=GETDATE(), DeletedBy=@DeletedBy WHERE Id=@Id;
         END TRY

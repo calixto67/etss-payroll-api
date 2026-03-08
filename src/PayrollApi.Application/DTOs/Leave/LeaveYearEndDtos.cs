@@ -6,6 +6,8 @@ public record LeaveYearEndResultDto(
     int BalancesCreated,
     int BalancesExpired,
     int CarryForwardsApplied,
+    int LeaveTypesProcessed,
+    string LeaveTypeNames,
     string Message
 );
 

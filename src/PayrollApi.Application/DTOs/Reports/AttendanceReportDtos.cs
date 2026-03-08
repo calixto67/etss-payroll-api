@@ -17,7 +17,6 @@ public sealed class DailyAttendanceRowDto
     public decimal NightDiffHours { get; set; }
     public string? Status { get; set; }
     public string? Remarks { get; set; }
-    public string? PeriodName { get; set; }
 }
 
 // ── Tardiness & Undertime ───────────────────────────────────────
@@ -33,7 +32,6 @@ public sealed class TardinessRowDto
     public TimeSpan? TimeOut { get; set; }
     public decimal LateHours { get; set; }
     public decimal UndertimeHours { get; set; }
-    public string? PeriodName { get; set; }
 }
 
 // ── Absenteeism ─────────────────────────────────────────────────
@@ -47,7 +45,6 @@ public sealed class AbsenteeismRowDto
     public DateTime Date { get; set; }
     public string? Status { get; set; }
     public string? Remarks { get; set; }
-    public string? PeriodName { get; set; }
 }
 
 // ── Overtime ────────────────────────────────────────────────────
@@ -64,7 +61,6 @@ public sealed class OvertimeRowDto
     public decimal OtHours { get; set; }
     public decimal NightDiffHours { get; set; }
     public string? Status { get; set; }
-    public string? PeriodName { get; set; }
 }
 
 // ── Leave Usage ─────────────────────────────────────────────────
@@ -100,5 +96,4 @@ public sealed class AttendanceSummaryRowDto
     public decimal DaysAbsent { get; set; }
     public decimal AttendanceRate { get; set; }
     public string? Status { get; set; }
-    public string? PeriodName { get; set; }
 }

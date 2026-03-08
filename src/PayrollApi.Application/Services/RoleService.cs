@@ -16,9 +16,8 @@ public class RoleService : IRoleService
     public static readonly IReadOnlyList<string> AllModuleKeys = new[]
     {
         "dashboard", "pay-periods", "attendance", "payroll-run",
-        "approvals", "payslips", "employees", "leave",
-        "government-reports", "reports", "setup", "user-roles", "users",
-        "work-schedules"
+        "approvals", "payslips", "employees", "leave", "enrollment",
+        "reports", "setup", "user-roles", "users"
     };
 
     private static readonly HashSet<string> AdminRoles = new(StringComparer.OrdinalIgnoreCase)

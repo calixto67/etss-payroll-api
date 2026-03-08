@@ -15,6 +15,8 @@ public record AttendanceDto(
     string Status,
     string? Issue,
     string? ResolutionNotes,
+    int? WorkScheduleId,
+    string? WorkScheduleName,
     List<AttendanceDetailDto>? Details);
 
 public record AttendanceDetailDto(
@@ -105,3 +107,15 @@ public record ScheduleCheckResultDto(
     string EmployeeCode,
     string EmployeeName,
     bool HasSchedule);
+
+// Employee schedule day info (for Fill Schedule feature)
+public record EmployeeScheduleDayDto(
+    int DayOfWeek,
+    string ShiftStart,
+    string ShiftEnd,
+    bool IsRestDay,
+    int GracePeriodMinutes,
+    int OTStartAfterMinutes,
+    int OTMinimumMinutes,
+    string NightDiffStartTime,
+    string NightDiffEndTime);

@@ -1,6 +1,7 @@
 CREATE OR ALTER PROCEDURE sp_AttendanceReport
     @ActionType       VARCHAR(50),
-    @PayrollPeriodId  INT          = NULL,
+    @StartDate        DATE         = NULL,
+    @EndDate          DATE         = NULL,
     @DepartmentId     INT          = NULL,
     @BranchId         INT          = NULL,
     @EmployeeId       INT          = NULL
@@ -27,16 +28,14 @@ BEGIN
             ad.OtHours,
             ad.NightDiffHours,
             ad.Status,
-            ad.Remarks,
-            pp.Name           AS PeriodName
+            ad.Remarks
         FROM AttendanceDetails ad
         INNER JOIN Attendances a     ON a.Id = ad.AttendanceId AND a.IsDeleted = 0
         INNER JOIN Employees e       ON e.Id = a.EmployeeId AND e.IsDeleted = 0
-        INNER JOIN PayrollPeriods pp ON pp.Id = a.PayrollPeriodId
         LEFT  JOIN Departments d     ON d.Id = e.DepartmentId AND d.IsDeleted = 0
         LEFT  JOIN Branches b        ON b.Id = e.BranchId AND b.IsDeleted = 0
         WHERE ad.IsDeleted = 0
-          AND a.PayrollPeriodId = @PayrollPeriodId
+          AND ad.Date >= @StartDate AND ad.Date <= @EndDate
           AND (@DepartmentId IS NULL OR e.DepartmentId = @DepartmentId)
           AND (@BranchId     IS NULL OR e.BranchId     = @BranchId)
           AND (@EmployeeId   IS NULL OR e.Id           = @EmployeeId)
@@ -58,16 +57,14 @@ BEGIN
             ad.TimeIn,
             ad.TimeOut,
             ad.LateHours,
-            ad.UndertimeHours,
-            pp.Name           AS PeriodName
+            ad.UndertimeHours
         FROM AttendanceDetails ad
         INNER JOIN Attendances a     ON a.Id = ad.AttendanceId AND a.IsDeleted = 0
         INNER JOIN Employees e       ON e.Id = a.EmployeeId AND e.IsDeleted = 0
-        INNER JOIN PayrollPeriods pp ON pp.Id = a.PayrollPeriodId
         LEFT  JOIN Departments d     ON d.Id = e.DepartmentId AND d.IsDeleted = 0
         LEFT  JOIN Branches b        ON b.Id = e.BranchId AND b.IsDeleted = 0
         WHERE ad.IsDeleted = 0
-          AND a.PayrollPeriodId = @PayrollPeriodId
+          AND ad.Date >= @StartDate AND ad.Date <= @EndDate
           AND (ad.LateHours > 0 OR ad.UndertimeHours > 0)
           AND (@DepartmentId IS NULL OR e.DepartmentId = @DepartmentId)
           AND (@BranchId     IS NULL OR e.BranchId     = @BranchId)
@@ -88,16 +85,14 @@ BEGIN
             b.BranchName,
             ad.Date,
             ad.Status,
-            ad.Remarks,
-            pp.Name           AS PeriodName
+            ad.Remarks
         FROM AttendanceDetails ad
         INNER JOIN Attendances a     ON a.Id = ad.AttendanceId AND a.IsDeleted = 0
         INNER JOIN Employees e       ON e.Id = a.EmployeeId AND e.IsDeleted = 0
-        INNER JOIN PayrollPeriods pp ON pp.Id = a.PayrollPeriodId
         LEFT  JOIN Departments d     ON d.Id = e.DepartmentId AND d.IsDeleted = 0
         LEFT  JOIN Branches b        ON b.Id = e.BranchId AND b.IsDeleted = 0
         WHERE ad.IsDeleted = 0
-          AND a.PayrollPeriodId = @PayrollPeriodId
+          AND ad.Date >= @StartDate AND ad.Date <= @EndDate
           AND ad.Status IN ('A', 'AWOL', 'Absent')
           AND (@DepartmentId IS NULL OR e.DepartmentId = @DepartmentId)
           AND (@BranchId     IS NULL OR e.BranchId     = @BranchId)
@@ -121,16 +116,14 @@ BEGIN
             ad.TimeOut,
             ad.OtHours,
             ad.NightDiffHours,
-            ad.Status,
-            pp.Name           AS PeriodName
+            ad.Status
         FROM AttendanceDetails ad
         INNER JOIN Attendances a     ON a.Id = ad.AttendanceId AND a.IsDeleted = 0
         INNER JOIN Employees e       ON e.Id = a.EmployeeId AND e.IsDeleted = 0
-        INNER JOIN PayrollPeriods pp ON pp.Id = a.PayrollPeriodId
         LEFT  JOIN Departments d     ON d.Id = e.DepartmentId AND d.IsDeleted = 0
         LEFT  JOIN Branches b        ON b.Id = e.BranchId AND b.IsDeleted = 0
         WHERE ad.IsDeleted = 0
-          AND a.PayrollPeriodId = @PayrollPeriodId
+          AND ad.Date >= @StartDate AND ad.Date <= @EndDate
           AND ad.OtHours > 0
           AND (@DepartmentId IS NULL OR e.DepartmentId = @DepartmentId)
           AND (@BranchId     IS NULL OR e.BranchId     = @BranchId)
@@ -177,26 +170,35 @@ BEGIN
                               AS EmployeeName,
             d.DepartmentName,
             b.BranchName,
-            a.DaysWorked,
-            a.TotalDays,
-            a.LateHours       AS TotalLateHours,
-            a.UndertimeHours  AS TotalUndertimeHours,
-            a.OtHours         AS TotalOtHours,
-            a.NightDiffHours  AS TotalNightDiffHours,
-            (a.TotalDays - a.DaysWorked) AS DaysAbsent,
-            CASE WHEN a.TotalDays > 0 THEN CAST(a.DaysWorked * 100.0 / a.TotalDays AS DECIMAL(5,2)) ELSE 0 END AS AttendanceRate,
-            a.Status,
-            pp.Name           AS PeriodName
-        FROM Attendances a
+            ISNULL(SUM(CASE WHEN ad.Status NOT IN ('Absent','Rest Day') THEN 1 ELSE 0 END), 0) AS DaysWorked,
+            ISNULL(SUM(CASE WHEN ad.Status <> 'Rest Day' THEN 1 ELSE 0 END), 0) AS TotalDays,
+            ISNULL(SUM(ad.LateHours), 0) AS TotalLateHours,
+            ISNULL(SUM(ad.UndertimeHours), 0) AS TotalUndertimeHours,
+            ISNULL(SUM(ad.OtHours), 0) AS TotalOtHours,
+            ISNULL(SUM(ad.NightDiffHours), 0) AS TotalNightDiffHours,
+            ISNULL(SUM(CASE WHEN ad.Status IN ('Absent') THEN 1 ELSE 0 END), 0) AS DaysAbsent,
+            CASE
+                WHEN SUM(CASE WHEN ad.Status <> 'Rest Day' THEN 1 ELSE 0 END) > 0
+                THEN CAST(SUM(CASE WHEN ad.Status NOT IN ('Absent','Rest Day') THEN 1 ELSE 0 END) * 100.0
+                     / SUM(CASE WHEN ad.Status <> 'Rest Day' THEN 1 ELSE 0 END) AS DECIMAL(5,2))
+                ELSE 0
+            END AS AttendanceRate,
+            CASE
+                WHEN SUM(CASE WHEN ad.LateHours > 0 THEN 1 ELSE 0 END) > 0 THEN 'Late'
+                ELSE 'Ok'
+            END AS Status
+        FROM AttendanceDetails ad
+        INNER JOIN Attendances a     ON a.Id = ad.AttendanceId AND a.IsDeleted = 0
         INNER JOIN Employees e       ON e.Id = a.EmployeeId AND e.IsDeleted = 0
-        INNER JOIN PayrollPeriods pp ON pp.Id = a.PayrollPeriodId
         LEFT  JOIN Departments d     ON d.Id = e.DepartmentId AND d.IsDeleted = 0
         LEFT  JOIN Branches b        ON b.Id = e.BranchId AND b.IsDeleted = 0
-        WHERE a.IsDeleted = 0
-          AND a.PayrollPeriodId = @PayrollPeriodId
+        WHERE ad.IsDeleted = 0
+          AND ad.Date >= @StartDate AND ad.Date <= @EndDate
           AND (@DepartmentId IS NULL OR e.DepartmentId = @DepartmentId)
           AND (@BranchId     IS NULL OR e.BranchId     = @BranchId)
           AND (@EmployeeId   IS NULL OR e.Id           = @EmployeeId)
+        GROUP BY e.Id, e.EmployeeCode, e.FirstName, e.MiddleName, e.LastName, e.Suffix,
+                 d.DepartmentName, b.BranchName
         ORDER BY d.DepartmentName, e.LastName, e.FirstName;
     END
 END

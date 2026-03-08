@@ -264,7 +264,22 @@ BEGIN
     END
 
     -- -----------------------------------------------------------------------
-    -- RUN  (uses TaxBrackets table instead of hardcoded CASE)
+    -- GET_DETAILS  (returns itemized allowances/deductions for a payroll record)
+    -- -----------------------------------------------------------------------
+    IF @ActionType = 'GET_DETAILS'
+    BEGIN
+        BEGIN TRY
+            SELECT Id, PayrollRecordId, ItemType, ItemName, Amount
+            FROM PayrollRecordDetails
+            WHERE PayrollRecordId = @Id
+            ORDER BY ItemType, ItemName;
+        END TRY
+        BEGIN CATCH THROW; END CATCH
+        RETURN;
+    END
+
+    -- -----------------------------------------------------------------------
+    -- RUN  (uses TaxBrackets + salary frequency proration)
     -- -----------------------------------------------------------------------
     IF @ActionType = 'RUN'
     BEGIN
@@ -290,15 +305,84 @@ BEGIN
                   AND CAST(value AS INT) IN (SELECT Id FROM Employees WHERE Status = 1 AND IsDeleted = 0);
             END
 
-            DELETE te FROM #TargetEmployees te
-            WHERE EXISTS (
-                SELECT 1 FROM PayrollRecords pr
-                WHERE pr.EmployeeId = te.EmployeeId
-                  AND pr.PayrollPeriodId = @PeriodId
-                  AND pr.IsDeleted = 0
-            );
+            -- Delete existing detail rows for records being reprocessed
+            DELETE d FROM PayrollRecordDetails d
+            INNER JOIN PayrollRecords pr ON pr.Id = d.PayrollRecordId
+            WHERE pr.PayrollPeriodId = @PeriodId
+              AND pr.EmployeeId IN (SELECT EmployeeId FROM #TargetEmployees)
+              AND pr.IsDeleted = 0;
 
-            -- Compute payroll using TaxBrackets table
+            -- Delete existing records for target employees in this period (allows reprocessing)
+            DELETE FROM PayrollRecords
+            WHERE PayrollPeriodId = @PeriodId
+              AND EmployeeId IN (SELECT EmployeeId FROM #TargetEmployees)
+              AND IsDeleted = 0;
+
+            -- Get period info
+            DECLARE @PeriodStartDate DATE;
+            DECLARE @PeriodType INT;
+            DECLARE @PeriodHalf VARCHAR(10);
+            SELECT @PeriodStartDate = StartDate, @PeriodType = PeriodType
+            FROM PayrollPeriods WHERE Id = @PeriodId;
+
+            IF DAY(@PeriodStartDate) <= 15
+                SET @PeriodHalf = '1st Half';
+            ELSE
+                SET @PeriodHalf = '2nd Half';
+
+            -- How many pay periods per month does this PeriodType produce?
+            --   PeriodType 1 = Semi-Monthly  => 2 periods/month
+            --   PeriodType 2 = Monthly       => 1 period/month
+            --   PeriodType 3 = Weekly         => ~4.33 periods/month
+            DECLARE @PeriodPeriodsPerMonth DECIMAL(10,4);
+            SET @PeriodPeriodsPerMonth = CASE @PeriodType
+                WHEN 1 THEN 2.0     -- Semi-Monthly
+                WHEN 2 THEN 1.0     -- Monthly
+                WHEN 3 THEN 4.3333  -- Weekly
+                ELSE 2.0
+            END;
+
+            -- Collect individual allowance items per employee (for detail rows)
+            CREATE TABLE #AllowanceItems (EmployeeId INT, ItemName NVARCHAR(200), Amount DECIMAL(18,2));
+            INSERT INTO #AllowanceItems (EmployeeId, ItemName, Amount)
+            SELECT ea.EmployeeId, at.Name, ea.Amount
+            FROM EmployeeAllowances ea
+            INNER JOIN AllowanceTypes at ON at.Id = ea.AllowanceTypeId
+            INNER JOIN #TargetEmployees te ON te.EmployeeId = ea.EmployeeId
+            WHERE ea.IsActive = 1 AND ea.IsDeleted = 0
+              AND (ea.Frequency = @PeriodHalf OR ea.Frequency = 'Both' OR ea.Frequency = 'Monthly' OR ea.Frequency IS NULL);
+
+            -- Collect individual deduction items per employee (for detail rows)
+            CREATE TABLE #DeductionItems (EmployeeId INT, ItemName NVARCHAR(200), Amount DECIMAL(18,2));
+            INSERT INTO #DeductionItems (EmployeeId, ItemName, Amount)
+            SELECT ed.EmployeeId, dt.Name, ed.Amount
+            FROM EmployeeDeductions ed
+            INNER JOIN DeductionTypes dt ON dt.Id = ed.DeductionTypeId
+            INNER JOIN #TargetEmployees te ON te.EmployeeId = ed.EmployeeId
+            WHERE ed.IsActive = 1 AND ed.IsDeleted = 0
+              AND (ed.Frequency = @PeriodHalf OR ed.Frequency = 'Both' OR ed.Frequency = 'Monthly' OR ed.Frequency IS NULL);
+
+            -- Pre-aggregate totals per employee
+            CREATE TABLE #EmpAllowances (EmployeeId INT, TotalAllowances DECIMAL(18,2));
+            INSERT INTO #EmpAllowances (EmployeeId, TotalAllowances)
+            SELECT EmployeeId, SUM(Amount) FROM #AllowanceItems GROUP BY EmployeeId;
+
+            CREATE TABLE #EmpDeductions (EmployeeId INT, TotalOtherDeductions DECIMAL(18,2));
+            INSERT INTO #EmpDeductions (EmployeeId, TotalOtherDeductions)
+            SELECT EmployeeId, SUM(Amount) FROM #DeductionItems GROUP BY EmployeeId;
+
+            -- ============================================================
+            -- Compute payroll with salary frequency proration
+            --
+            -- Employee.SalaryFrequency values:
+            --   0 = Monthly, 1 = Semi-monthly, 2 = Bi-weekly, 3 = Weekly, 4 = Daily
+            --
+            -- Logic:
+            --   1. Normalize employee salary to monthly
+            --   2. Divide by @PeriodPeriodsPerMonth to get per-period amount
+            --   3. Statutory deductions (SSS/PhilHealth/PagIbig) are monthly => prorate
+            --   4. Tax brackets are monthly => compute on monthly taxable, then prorate
+            -- ============================================================
             INSERT INTO PayrollRecords (
                 EmployeeId, PayrollPeriodId, BasicPay, OvertimePay, HolidayPay, Allowances,
                 GrossPay, SssDeduction, PhilHealthDeduction, PagIbigDeduction, TaxWithheld,
@@ -308,42 +392,78 @@ BEGIN
             SELECT
                 calc.EmployeeId,
                 @PeriodId,
-                calc.BasicSalary,
+                calc.PeriodBasicPay,
                 0,  -- OvertimePay
                 0,  -- HolidayPay
-                0,  -- Allowances
-                calc.BasicSalary,  -- GrossPay
-                calc.SssContribution,
-                calc.PhilHealthContribution,
-                calc.PagIbigContribution,
-                ISNULL(tb.BaseTax + (calc.TaxableIncome - tb.ExcessOver) * tb.TaxRate, 0), -- TaxWithheld
-                0,  -- OtherDeductions
+                calc.TotalAllowances,
+                calc.PeriodBasicPay + calc.TotalAllowances,  -- GrossPay
+                calc.PeriodSss,
+                calc.PeriodPhilHealth,
+                calc.PeriodPagIbig,
+                -- Tax: compute on MONTHLY taxable income, then prorate to period
+                ROUND(ISNULL(tb.BaseTax + (calc.MonthlyTaxableIncome - tb.ExcessOver) * tb.TaxRate, 0) / @PeriodPeriodsPerMonth, 2),
+                calc.TotalOtherDeductions,
                 -- TotalDeductions
-                calc.SssContribution + calc.PhilHealthContribution + calc.PagIbigContribution
-                    + ISNULL(tb.BaseTax + (calc.TaxableIncome - tb.ExcessOver) * tb.TaxRate, 0),
+                calc.PeriodSss + calc.PeriodPhilHealth + calc.PeriodPagIbig
+                    + ROUND(ISNULL(tb.BaseTax + (calc.MonthlyTaxableIncome - tb.ExcessOver) * tb.TaxRate, 0) / @PeriodPeriodsPerMonth, 2)
+                    + calc.TotalOtherDeductions,
                 -- NetPay
-                calc.BasicSalary - (
-                    calc.SssContribution + calc.PhilHealthContribution + calc.PagIbigContribution
-                    + ISNULL(tb.BaseTax + (calc.TaxableIncome - tb.ExcessOver) * tb.TaxRate, 0)
+                (calc.PeriodBasicPay + calc.TotalAllowances) - (
+                    calc.PeriodSss + calc.PeriodPhilHealth + calc.PeriodPagIbig
+                    + ROUND(ISNULL(tb.BaseTax + (calc.MonthlyTaxableIncome - tb.ExcessOver) * tb.TaxRate, 0) / @PeriodPeriodsPerMonth, 2)
+                    + calc.TotalOtherDeductions
                 ),
-                @StatusForApproval,  -- Status from PayrollStatuses
+                @StatusForApproval,
                 NULL,
                 GETDATE(),
                 @InitiatedBy
             FROM (
                 SELECT
                     e.Id AS EmployeeId,
-                    e.BasicSalary,
-                    e.SssContribution,
-                    e.PhilHealthContribution,
-                    e.PagIbigContribution,
-                    e.BasicSalary - e.SssContribution - e.PhilHealthContribution - e.PagIbigContribution AS TaxableIncome
+                    -- Normalize to monthly then divide by periods/month
+                    -- SalaryFrequency: 0=Monthly(1x), 1=SemiMonthly(2x), 2=BiWeekly(2.1667x), 3=Weekly(4.3333x), 4=Daily(21.75x)
+                    ROUND(e.BasicSalary * CASE e.SalaryFrequency
+                        WHEN 0 THEN 1.0 WHEN 1 THEN 2.0 WHEN 2 THEN 2.1667 WHEN 3 THEN 4.3333 WHEN 4 THEN 21.75 ELSE 1.0
+                    END / @PeriodPeriodsPerMonth, 2) AS PeriodBasicPay,
+
+                    -- Statutory contributions are monthly amounts => prorate to period
+                    ROUND(e.SssContribution / @PeriodPeriodsPerMonth, 2) AS PeriodSss,
+                    ROUND(e.PhilHealthContribution / @PeriodPeriodsPerMonth, 2) AS PeriodPhilHealth,
+                    ROUND(e.PagIbigContribution / @PeriodPeriodsPerMonth, 2) AS PeriodPagIbig,
+
+                    ISNULL(a.TotalAllowances, 0) AS TotalAllowances,
+                    ISNULL(d.TotalOtherDeductions, 0) AS TotalOtherDeductions,
+
+                    -- Monthly taxable income (for tax bracket lookup, always monthly basis)
+                    e.BasicSalary * CASE e.SalaryFrequency
+                        WHEN 0 THEN 1.0 WHEN 1 THEN 2.0 WHEN 2 THEN 2.1667 WHEN 3 THEN 4.3333 WHEN 4 THEN 21.75 ELSE 1.0
+                    END - e.SssContribution - e.PhilHealthContribution - e.PagIbigContribution AS MonthlyTaxableIncome
                 FROM Employees e
                 INNER JOIN #TargetEmployees te ON te.EmployeeId = e.Id
+                LEFT JOIN #EmpAllowances a ON a.EmployeeId = e.Id
+                LEFT JOIN #EmpDeductions d ON d.EmployeeId = e.Id
             ) calc
             LEFT JOIN TaxBrackets tb ON tb.IsActive = 1
-                AND calc.TaxableIncome >= tb.MinAmount
-                AND (tb.MaxAmount IS NULL OR calc.TaxableIncome <= tb.MaxAmount);
+                AND calc.MonthlyTaxableIncome >= tb.MinAmount
+                AND (tb.MaxAmount IS NULL OR calc.MonthlyTaxableIncome <= tb.MaxAmount);
+
+            -- Insert allowance detail rows linked to PayrollRecordId
+            INSERT INTO PayrollRecordDetails (PayrollRecordId, ItemType, ItemName, Amount)
+            SELECT pr.Id, 'Allowance', ai.ItemName, ai.Amount
+            FROM #AllowanceItems ai
+            INNER JOIN PayrollRecords pr ON pr.EmployeeId = ai.EmployeeId
+                AND pr.PayrollPeriodId = @PeriodId
+                AND pr.IsDeleted = 0
+                AND pr.CreatedBy = @InitiatedBy;
+
+            -- Insert deduction detail rows linked to PayrollRecordId
+            INSERT INTO PayrollRecordDetails (PayrollRecordId, ItemType, ItemName, Amount)
+            SELECT pr.Id, 'Deduction', di.ItemName, di.Amount
+            FROM #DeductionItems di
+            INNER JOIN PayrollRecords pr ON pr.EmployeeId = di.EmployeeId
+                AND pr.PayrollPeriodId = @PeriodId
+                AND pr.IsDeleted = 0
+                AND pr.CreatedBy = @InitiatedBy;
 
             SELECT
                 pr.Id, pr.EmployeeId, pr.PayrollPeriodId,
@@ -365,11 +485,19 @@ BEGIN
             ORDER BY e.LastName, e.FirstName;
 
             DROP TABLE #TargetEmployees;
+            DROP TABLE #AllowanceItems;
+            DROP TABLE #DeductionItems;
+            DROP TABLE #EmpAllowances;
+            DROP TABLE #EmpDeductions;
             COMMIT TRANSACTION;
         END TRY
         BEGIN CATCH
             IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
             IF OBJECT_ID('tempdb..#TargetEmployees') IS NOT NULL DROP TABLE #TargetEmployees;
+            IF OBJECT_ID('tempdb..#AllowanceItems') IS NOT NULL DROP TABLE #AllowanceItems;
+            IF OBJECT_ID('tempdb..#DeductionItems') IS NOT NULL DROP TABLE #DeductionItems;
+            IF OBJECT_ID('tempdb..#EmpAllowances') IS NOT NULL DROP TABLE #EmpAllowances;
+            IF OBJECT_ID('tempdb..#EmpDeductions') IS NOT NULL DROP TABLE #EmpDeductions;
             THROW;
         END CATCH
         RETURN;
@@ -828,6 +956,7 @@ BEGIN
             DECLARE @RpGracePeriod INT = 15, @RpOTStartAfter INT = 0, @RpOTMinimum INT = 30;
             DECLARE @RpNDStart TIME = '22:00:00', @RpNDEnd TIME = '06:00:00';
             DECLARE @RpDefaultShiftStart TIME = '08:00:00', @RpDefaultShiftEnd TIME = '17:00:00';
+            DECLARE @RpAllowND BIT = 1, @RpAllowOT BIT = 1;
 
             SELECT TOP 1
                 @RpGracePeriod = GracePeriodMinutes,
@@ -880,6 +1009,21 @@ BEGIN
 
                     IF @RpSchedId IS NULL
                         SELECT TOP 1 @RpSchedId = Id FROM WorkSchedules WHERE IsDefault = 1 AND IsDeleted = 0;
+
+                    -- Read per-schedule ND/OT flags and rule overrides
+                    IF @RpSchedId IS NOT NULL
+                    BEGIN
+                        SELECT
+                            @RpAllowND = ISNULL(AllowNightDifferential, 1),
+                            @RpAllowOT = ISNULL(AllowOvertime, 1),
+                            @RpGracePeriod = ISNULL(GracePeriodMinutes, @RpGracePeriod),
+                            @RpOTStartAfter = ISNULL(OTStartAfterMinutes, @RpOTStartAfter),
+                            @RpOTMinimum = ISNULL(OTMinimumMinutes, @RpOTMinimum),
+                            @RpNDStart = ISNULL(NightDiffStartTime, @RpNDStart),
+                            @RpNDEnd = ISNULL(NightDiffEndTime, @RpNDEnd)
+                        FROM WorkSchedules
+                        WHERE Id = @RpSchedId AND IsDeleted = 0;
+                    END
 
                     DECLARE @RpTotalLate DECIMAL(18,2) = 0, @RpTotalUT DECIMAL(18,2) = 0;
                     DECLARE @RpTotalOT DECIMAL(18,2) = 0, @RpTotalND DECIMAL(18,2) = 0;
@@ -944,14 +1088,14 @@ BEGIN
                                 IF @RpTimeOut IS NOT NULL AND @RpTimeOut < @RpShiftEnd
                                     SET @RpUTMins = DATEDIFF(MINUTE, @RpTimeOut, @RpShiftEnd);
 
-                                IF @RpTimeOut IS NOT NULL AND @RpTimeOut > DATEADD(MINUTE, @RpOTStartAfter, @RpShiftEnd)
+                                IF @RpAllowOT = 1 AND @RpTimeOut IS NOT NULL AND @RpTimeOut > DATEADD(MINUTE, @RpOTStartAfter, @RpShiftEnd)
                                 BEGIN
                                     DECLARE @RpOTCandidate DECIMAL(18,2) = DATEDIFF(MINUTE, @RpShiftEnd, @RpTimeOut);
                                     IF @RpOTCandidate >= @RpOTMinimum
                                         SET @RpOTMins = @RpOTCandidate;
                                 END
 
-                                IF @RpTimeOut IS NOT NULL AND @RpTimeOut > @RpNDStart
+                                IF @RpAllowND = 1 AND @RpTimeOut IS NOT NULL AND @RpTimeOut > @RpNDStart
                                     SET @RpNDMins = DATEDIFF(MINUTE, @RpNDStart, @RpTimeOut);
 
                                 DECLARE @RpLateH DECIMAL(18,2) = ROUND(@RpLateMins / 60.0, 2);
@@ -2719,8 +2863,8 @@ BEGIN
                     CAST(1 AS BIT) AS CanUpdate, CAST(1 AS BIT) AS CanDelete
                 FROM (VALUES
                     ('dashboard'),('pay-periods'),('attendance'),('payroll-run'),('approvals'),
-                    ('payslips'),('employees'),('leave'),('reports'),('setup'),
-                    ('user-roles'),('users'),('work-schedules')
+                    ('payslips'),('employees'),('leave'),('enrollment'),
+                    ('reports'),('setup'),('user-roles'),('users')
                 ) AS m(ModuleKey);
                 RETURN;
             END

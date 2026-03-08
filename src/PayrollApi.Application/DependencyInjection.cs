@@ -34,6 +34,11 @@ public static class DependencyInjection
         services.AddScoped<IAttendanceReportService, AttendanceReportService>();
         services.AddScoped<IDepartmentService, DepartmentService>();
         services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IEmployeeEnrollmentService, EmployeeEnrollmentService>();
+        services.AddScoped<ITaxBracketService, TaxBracketService>();
+        services.AddScoped<IContributionBracketService, ContributionBracketService>();
+        services.AddScoped<IOvertimeApplicationService, OvertimeApplicationService>();
 
         return services;
     }

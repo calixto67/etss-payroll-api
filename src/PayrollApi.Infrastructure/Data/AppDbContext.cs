@@ -47,6 +47,13 @@ public class AppDbContext : DbContext
     // Deduction types
     public DbSet<DeductionType>       DeductionTypes     => Set<DeductionType>();
 
+    // Overtime applications
+    public DbSet<OvertimeApplication> OvertimeApplications => Set<OvertimeApplication>();
+
+    // Employee enrollments
+    public DbSet<EmployeeAllowance>   EmployeeAllowances => Set<EmployeeAllowance>();
+    public DbSet<EmployeeDeduction>   EmployeeDeductions => Set<EmployeeDeduction>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -81,6 +88,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Attendance>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<AttendanceDetail>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<DeductionType>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<EmployeeAllowance>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<EmployeeDeduction>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<OvertimeApplication>().HasQueryFilter(e => !e.IsDeleted);
 
         // CompanySettings decimal precision
         modelBuilder.Entity<CompanySettings>(b =>

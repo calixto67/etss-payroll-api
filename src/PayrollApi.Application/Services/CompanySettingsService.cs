@@ -41,6 +41,9 @@ public class CompanySettingsService : ICompanySettingsService
         public decimal DefaultSssContribution { get; set; }
         public decimal DefaultPhilHealthContribution { get; set; }
         public decimal DefaultPagIbigContribution { get; set; }
+        public string ContributionTimingSss { get; set; } = "1st_half";
+        public string ContributionTimingPhilHealth { get; set; } = "1st_half";
+        public string ContributionTimingPagIbig { get; set; } = "1st_half";
     }
 
     // ── Public methods ───────────────────────────────────────────────────
@@ -76,8 +79,11 @@ public class CompanySettingsService : ICompanySettingsService
                 BirNo                    = dto.BirNo?.Trim(),
                 EmployerSssNo            = dto.EmployerSssNo?.Trim(),
                 IndustryClassification   = dto.IndustryClassification?.Trim(),
-                DateFormat               = dto.DateFormat?.Trim(),
-                UpdatedBy                = updatedBy,
+                DateFormat                    = dto.DateFormat?.Trim(),
+                ContributionTimingSss         = dto.ContributionTimingSss?.Trim(),
+                ContributionTimingPhilHealth  = dto.ContributionTimingPhilHealth?.Trim(),
+                ContributionTimingPagIbig     = dto.ContributionTimingPagIbig?.Trim(),
+                UpdatedBy                     = updatedBy,
             }, ct) ?? throw new AppException("Failed to update company settings.");
 
             var hasDbLogo = await _globalConfig.HasCompanyLogoAsync(ct);
@@ -139,8 +145,11 @@ public class CompanySettingsService : ICompanySettingsService
         IndustryClassification       = r.IndustryClassification,
         LogoUrl                      = useGlobalConfigLogo ? CompanyLogoApiPath : (r.LogoPath is not null ? $"/{r.LogoPath}" : null),
         DateFormat                   = r.DateFormat,
-        DefaultSssContribution       = r.DefaultSssContribution,
+        DefaultSssContribution        = r.DefaultSssContribution,
         DefaultPhilHealthContribution = r.DefaultPhilHealthContribution,
-        DefaultPagIbigContribution   = r.DefaultPagIbigContribution,
+        DefaultPagIbigContribution    = r.DefaultPagIbigContribution,
+        ContributionTimingSss         = r.ContributionTimingSss,
+        ContributionTimingPhilHealth  = r.ContributionTimingPhilHealth,
+        ContributionTimingPagIbig     = r.ContributionTimingPagIbig,
     };
 }

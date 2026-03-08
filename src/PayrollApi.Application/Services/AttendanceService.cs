@@ -31,6 +31,8 @@ public class AttendanceService : IAttendanceService
         public int Status { get; set; }
         public string? Issue { get; set; }
         public string? ResolutionNotes { get; set; }
+        public int? WorkScheduleId { get; set; }
+        public string? WorkScheduleName { get; set; }
     }
 
     private sealed class AttendanceDetailRow
@@ -269,6 +271,23 @@ public class AttendanceService : IAttendanceService
         }
     }
 
+    public async Task<AttendanceDto> ReprocessDetailsAsync(int attendanceId, string updatedBy, CancellationToken ct)
+    {
+        try
+        {
+            await _sql.ExecuteAsync(
+                "sp_Attendance",
+                new { ActionType = "REPROCESS_DETAILS", Id = attendanceId, UpdatedBy = updatedBy },
+                ct);
+
+            return await GetByIdAsync(attendanceId, ct);
+        }
+        catch (SqlException ex)
+        {
+            throw new AppException(ex.Message);
+        }
+    }
+
     public async Task<IEnumerable<ScheduleCheckResultDto>> CheckEmployeeSchedulesAsync(IEnumerable<string> employeeCodes, CancellationToken ct)
     {
         try
@@ -278,6 +297,23 @@ public class AttendanceService : IAttendanceService
             var rows = await _sql.QueryAsync<ScheduleCheckResultDto>(
                 "sp_Attendance",
                 new { ActionType = "CHECK_SCHEDULES", EmployeeCodes = csv },
+                ct);
+
+            return rows;
+        }
+        catch (SqlException ex)
+        {
+            throw new AppException(ex.Message);
+        }
+    }
+
+    public async Task<IEnumerable<EmployeeScheduleDayDto>> GetEmployeeScheduleAsync(int employeeId, CancellationToken ct)
+    {
+        try
+        {
+            var rows = await _sql.QueryAsync<EmployeeScheduleDayDto>(
+                "sp_Attendance",
+                new { ActionType = "GET_EMPLOYEE_SCHEDULE", EmployeeId = employeeId },
                 ct);
 
             return rows;
@@ -313,6 +349,8 @@ public class AttendanceService : IAttendanceService
         StatusIntToString(r.Status),
         r.Issue,
         r.ResolutionNotes,
+        r.WorkScheduleId,
+        r.WorkScheduleName,
         details?.Select(MapDetailRowToDto).ToList());
 
     private static AttendanceDetailDto MapDetailRowToDto(AttendanceDetailRow d) => new(

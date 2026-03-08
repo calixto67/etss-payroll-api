@@ -12,12 +12,13 @@ public class AttendanceReportService : IAttendanceReportService
     public AttendanceReportService(ISqlExecutor sql) => _sql = sql;
 
     public async Task<IEnumerable<DailyAttendanceRowDto>> GetDailyAsync(
-        int periodId, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
+        DateTime startDate, DateTime endDate, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
     {
         return await _sql.QueryAsync<DailyAttendanceRowDto>(SP, new
         {
             ActionType = "DAILY",
-            PayrollPeriodId = periodId,
+            StartDate = startDate,
+            EndDate = endDate,
             DepartmentId = departmentId,
             BranchId = branchId,
             EmployeeId = employeeId
@@ -25,12 +26,13 @@ public class AttendanceReportService : IAttendanceReportService
     }
 
     public async Task<IEnumerable<TardinessRowDto>> GetTardinessAsync(
-        int periodId, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
+        DateTime startDate, DateTime endDate, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
     {
         return await _sql.QueryAsync<TardinessRowDto>(SP, new
         {
             ActionType = "TARDINESS",
-            PayrollPeriodId = periodId,
+            StartDate = startDate,
+            EndDate = endDate,
             DepartmentId = departmentId,
             BranchId = branchId,
             EmployeeId = employeeId
@@ -38,12 +40,13 @@ public class AttendanceReportService : IAttendanceReportService
     }
 
     public async Task<IEnumerable<AbsenteeismRowDto>> GetAbsenteeismAsync(
-        int periodId, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
+        DateTime startDate, DateTime endDate, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
     {
         return await _sql.QueryAsync<AbsenteeismRowDto>(SP, new
         {
             ActionType = "ABSENTEEISM",
-            PayrollPeriodId = periodId,
+            StartDate = startDate,
+            EndDate = endDate,
             DepartmentId = departmentId,
             BranchId = branchId,
             EmployeeId = employeeId
@@ -51,12 +54,13 @@ public class AttendanceReportService : IAttendanceReportService
     }
 
     public async Task<IEnumerable<OvertimeRowDto>> GetOvertimeAsync(
-        int periodId, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
+        DateTime startDate, DateTime endDate, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
     {
         return await _sql.QueryAsync<OvertimeRowDto>(SP, new
         {
             ActionType = "OVERTIME",
-            PayrollPeriodId = periodId,
+            StartDate = startDate,
+            EndDate = endDate,
             DepartmentId = departmentId,
             BranchId = branchId,
             EmployeeId = employeeId
@@ -69,7 +73,8 @@ public class AttendanceReportService : IAttendanceReportService
         return await _sql.QueryAsync<LeaveUsageRowDto>(SP, new
         {
             ActionType = "LEAVE_USAGE",
-            PayrollPeriodId = (int?)null,
+            StartDate = (DateTime?)null,
+            EndDate = (DateTime?)null,
             DepartmentId = departmentId,
             BranchId = branchId,
             EmployeeId = employeeId
@@ -77,12 +82,13 @@ public class AttendanceReportService : IAttendanceReportService
     }
 
     public async Task<IEnumerable<AttendanceSummaryRowDto>> GetSummaryAsync(
-        int periodId, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
+        DateTime startDate, DateTime endDate, int? departmentId, int? branchId, int? employeeId, CancellationToken ct = default)
     {
         return await _sql.QueryAsync<AttendanceSummaryRowDto>(SP, new
         {
             ActionType = "SUMMARY",
-            PayrollPeriodId = periodId,
+            StartDate = startDate,
+            EndDate = endDate,
             DepartmentId = departmentId,
             BranchId = branchId,
             EmployeeId = employeeId

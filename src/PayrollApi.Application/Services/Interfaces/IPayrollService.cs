@@ -11,4 +11,5 @@ public interface IPayrollService
     Task<PayrollRecordDto> ApproveAsync(int id, string approvedBy, CancellationToken cancellationToken = default);
     Task<PayrollRecordDto> ReleaseAsync(int id, string releasedBy, CancellationToken cancellationToken = default);
     Task<IEnumerable<PayrollRecordDto>> GetByPeriodAsync(int periodId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<PayrollRecordDetailDto>> GetDetailsAsync(int payrollRecordId, CancellationToken cancellationToken = default);
 }

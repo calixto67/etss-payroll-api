@@ -234,13 +234,14 @@ BEGIN
             WHEN NOT MATCHED THEN INSERT (AttendanceId,[Date],TimeIn,TimeOut,LateHours,UndertimeHours,OtHours,NightDiffHours,[Status],Remarks,IsDeleted,CreatedAt,CreatedBy)
                 VALUES (@Id,src.[Date],src.TimeIn,src.TimeOut,src.LateHours,src.UndertimeHours,src.OtHours,src.NightDiffHours,src.[Status],src.Remarks,0,GETDATE(),@UpdatedBy);
 
+            -- Recalculate header totals (exclude Rest Day and Holiday from counts)
             UPDATE Attendances SET
                 LateHours      = ISNULL((SELECT SUM(d.LateHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
                 UndertimeHours = ISNULL((SELECT SUM(d.UndertimeHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
                 OtHours        = ISNULL((SELECT SUM(d.OtHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
                 NightDiffHours = ISNULL((SELECT SUM(d.NightDiffHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
-                DaysWorked     = ISNULL((SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Absent','Rest Day')), 0),
-                TotalDays      = ISNULL((SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status <> 'Rest Day'), 0),
+                DaysWorked     = ISNULL((SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Absent','Rest Day','Holiday')), 0),
+                TotalDays      = ISNULL((SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Rest Day','Holiday')), 0),
                 UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE()
             WHERE Id = @Id;
 
@@ -560,6 +561,213 @@ BEGIN
             WHERE e.IsDeleted = 0;
         END TRY
         BEGIN CATCH THROW; END CATCH
+        RETURN;
+    END
+
+    -- -----------------------------------------------------------------------
+    -- GET_EMPLOYEE_SCHEDULE
+    -- Returns schedule days + rules for an employee (for Fill Schedule)
+    -- -----------------------------------------------------------------------
+    IF @ActionType = 'GET_EMPLOYEE_SCHEDULE'
+    BEGIN
+        BEGIN TRY
+            DECLARE @GesSchedId INT = NULL;
+            SELECT TOP 1 @GesSchedId = WorkScheduleId
+            FROM EmployeeSchedules
+            WHERE EmployeeId = @EmployeeId AND EndDate IS NULL AND IsDeleted = 0
+            ORDER BY EffectiveDate DESC;
+
+            IF @GesSchedId IS NULL
+                SELECT TOP 1 @GesSchedId = Id FROM WorkSchedules WHERE IsDefault = 1 AND IsDeleted = 0;
+
+            SELECT
+                wsd.DayOfWeek,
+                CONVERT(VARCHAR(5), wsd.ShiftStart, 108) AS ShiftStart,
+                CONVERT(VARCHAR(5), wsd.ShiftEnd, 108) AS ShiftEnd,
+                CAST(ISNULL(wsd.IsRestDay, 0) AS BIT) AS IsRestDay,
+                sr.GracePeriodMinutes,
+                sr.OTStartAfterMinutes,
+                sr.OTMinimumMinutes,
+                CONVERT(VARCHAR(5), sr.NightDiffStartTime, 108) AS NightDiffStartTime,
+                CONVERT(VARCHAR(5), sr.NightDiffEndTime, 108) AS NightDiffEndTime
+            FROM WorkScheduleDays wsd
+            CROSS JOIN (
+                SELECT TOP 1 GracePeriodMinutes, OTStartAfterMinutes, OTMinimumMinutes,
+                    NightDiffStartTime, NightDiffEndTime
+                FROM ScheduleRules WHERE IsDeleted = 0
+            ) sr
+            WHERE wsd.WorkScheduleId = @GesSchedId AND wsd.IsDeleted = 0
+            ORDER BY wsd.DayOfWeek;
+        END TRY
+        BEGIN CATCH THROW; END CATCH
+        RETURN;
+    END
+
+    -- -----------------------------------------------------------------------
+    -- REPROCESS_DETAILS
+    -- Recalculates late/undertime/OT/nightdiff from TimeIn/TimeOut using
+    -- the employee's schedule rules. Checks WorkScheduleDays for rest days.
+    -- Excludes weekends and rest days from TotalDays/DaysWorked counts.
+    -- -----------------------------------------------------------------------
+    IF @ActionType = 'REPROCESS_DETAILS'
+    BEGIN
+        BEGIN TRY
+            DECLARE @RpxEmpId INT, @RpxSchedId INT;
+            SELECT @RpxEmpId = EmployeeId FROM Attendances WHERE Id = @Id AND IsDeleted = 0;
+            IF @RpxEmpId IS NULL BEGIN RAISERROR('Attendance record not found.', 16, 1); RETURN; END
+
+            -- Get schedule rules
+            DECLARE @RpxGrace INT = 15, @RpxOTAfter INT = 0, @RpxOTMin INT = 30;
+            DECLARE @RpxNDStart TIME = '22:00:00', @RpxNDEnd TIME = '06:00:00';
+            DECLARE @RpxDefStart TIME = '08:00:00', @RpxDefEnd TIME = '17:00:00';
+
+            SELECT TOP 1
+                @RpxGrace = GracePeriodMinutes,
+                @RpxOTAfter = OTStartAfterMinutes,
+                @RpxOTMin = OTMinimumMinutes,
+                @RpxNDStart = NightDiffStartTime,
+                @RpxNDEnd = NightDiffEndTime
+            FROM ScheduleRules WHERE IsDeleted = 0;
+
+            -- Get employee schedule
+            SET @RpxSchedId = NULL;
+            SELECT TOP 1 @RpxSchedId = WorkScheduleId
+            FROM EmployeeSchedules
+            WHERE EmployeeId = @RpxEmpId AND EndDate IS NULL AND IsDeleted = 0
+            ORDER BY EffectiveDate DESC;
+
+            IF @RpxSchedId IS NULL
+                SELECT TOP 1 @RpxSchedId = Id FROM WorkSchedules WHERE IsDefault = 1 AND IsDeleted = 0;
+
+            BEGIN TRANSACTION;
+
+            -- Cursor over each detail row
+            DECLARE @RpxDId INT, @RpxDate DATE, @RpxTIn TIME, @RpxTOut TIME, @RpxStatus NVARCHAR(50);
+            DECLARE rpx_cursor CURSOR LOCAL FAST_FORWARD FOR
+                SELECT Id, [Date], TimeIn, TimeOut, [Status]
+                FROM AttendanceDetails
+                WHERE AttendanceId = @Id AND IsDeleted = 0;
+
+            OPEN rpx_cursor;
+            FETCH NEXT FROM rpx_cursor INTO @RpxDId, @RpxDate, @RpxTIn, @RpxTOut, @RpxStatus;
+
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                -- Check the actual schedule for this day of week
+                DECLARE @RpxDOW INT = DATEPART(WEEKDAY, @RpxDate) - 1;
+                DECLARE @RpxIsRestDay BIT = 0;
+                DECLARE @RpxShiftS TIME = @RpxDefStart, @RpxShiftE TIME = @RpxDefEnd;
+
+                IF @RpxSchedId IS NOT NULL
+                BEGIN
+                    SELECT @RpxShiftS = ISNULL(ShiftStart, @RpxDefStart),
+                           @RpxShiftE = ISNULL(ShiftEnd, @RpxDefEnd),
+                           @RpxIsRestDay = ISNULL(IsRestDay, 0)
+                    FROM WorkScheduleDays
+                    WHERE WorkScheduleId = @RpxSchedId AND DayOfWeek = @RpxDOW AND IsDeleted = 0;
+                END
+
+                -- Weekend or schedule rest day: mark as Rest Day, zero hours
+                IF @RpxIsRestDay = 1 OR @RpxDOW = 0 OR @RpxDOW = 6
+                BEGIN
+                    UPDATE AttendanceDetails SET LateHours=0, UndertimeHours=0, OtHours=0, NightDiffHours=0,
+                        [Status]='Rest Day', UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE() WHERE Id=@RpxDId;
+                END
+                -- Holiday rows: leave status as Holiday, zero hours
+                ELSE IF @RpxStatus = 'Holiday'
+                BEGIN
+                    UPDATE AttendanceDetails SET LateHours=0, UndertimeHours=0, OtHours=0, NightDiffHours=0,
+                        UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE() WHERE Id=@RpxDId;
+                END
+                ELSE
+                BEGIN
+                    -- Working day: recalculate from timestamps
+                    IF @RpxTIn IS NULL AND @RpxTOut IS NULL
+                    BEGIN
+                        -- No timestamps = absent
+                        UPDATE AttendanceDetails SET LateHours=0, UndertimeHours=0, OtHours=0, NightDiffHours=0,
+                            [Status]='Absent', UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE() WHERE Id=@RpxDId;
+                    END
+                    ELSE
+                    BEGIN
+                        DECLARE @RpxLM DECIMAL(18,2)=0, @RpxUM DECIMAL(18,2)=0, @RpxOM DECIMAL(18,2)=0, @RpxNM DECIMAL(18,2)=0;
+
+                        -- Late calculation
+                        IF @RpxTIn IS NOT NULL AND @RpxTIn > DATEADD(MINUTE, @RpxGrace, @RpxShiftS)
+                            SET @RpxLM = DATEDIFF(MINUTE, @RpxShiftS, @RpxTIn);
+
+                        -- Undertime calculation
+                        IF @RpxTOut IS NOT NULL AND @RpxTOut < @RpxShiftE
+                            SET @RpxUM = DATEDIFF(MINUTE, @RpxTOut, @RpxShiftE);
+
+                        -- OT calculation
+                        IF @RpxTOut IS NOT NULL AND @RpxTOut > DATEADD(MINUTE, @RpxOTAfter, @RpxShiftE)
+                        BEGIN
+                            DECLARE @RpxOTC DECIMAL(18,2) = DATEDIFF(MINUTE, @RpxShiftE, @RpxTOut);
+                            IF @RpxOTC >= @RpxOTMin SET @RpxOM = @RpxOTC;
+                        END
+
+                        -- Night diff calculation
+                        IF @RpxTOut IS NOT NULL AND @RpxTOut > @RpxNDStart
+                            SET @RpxNM = DATEDIFF(MINUTE, @RpxNDStart, @RpxTOut);
+
+                        DECLARE @RpxLH DECIMAL(18,2) = ROUND(@RpxLM/60.0, 2);
+                        DECLARE @RpxUH DECIMAL(18,2) = ROUND(@RpxUM/60.0, 2);
+                        DECLARE @RpxOH DECIMAL(18,2) = ROUND(@RpxOM/60.0, 2);
+                        DECLARE @RpxNH DECIMAL(18,2) = ROUND(@RpxNM/60.0, 2);
+
+                        DECLARE @RpxNewSt NVARCHAR(50) = 'Present';
+                        IF @RpxLM > 0 SET @RpxNewSt = 'Late';
+
+                        UPDATE AttendanceDetails SET
+                            LateHours=@RpxLH, UndertimeHours=@RpxUH, OtHours=@RpxOH, NightDiffHours=@RpxNH,
+                            [Status]=@RpxNewSt, UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE()
+                        WHERE Id=@RpxDId;
+                    END
+                END
+
+                FETCH NEXT FROM rpx_cursor INTO @RpxDId, @RpxDate, @RpxTIn, @RpxTOut, @RpxStatus;
+            END
+
+            CLOSE rpx_cursor;
+            DEALLOCATE rpx_cursor;
+
+            -- Recalculate header totals (exclude Rest Day and Holiday from counts)
+            UPDATE Attendances SET
+                LateHours      = ISNULL((SELECT SUM(d.LateHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
+                UndertimeHours = ISNULL((SELECT SUM(d.UndertimeHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
+                OtHours        = ISNULL((SELECT SUM(d.OtHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
+                NightDiffHours = ISNULL((SELECT SUM(d.NightDiffHours) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0), 0),
+                DaysWorked     = ISNULL((SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Absent','Rest Day','Holiday')), 0),
+                TotalDays      = ISNULL((SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Rest Day','Holiday')), 0),
+                Status = CASE
+                    WHEN (SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Absent','Rest Day','Holiday')) = 0 THEN 3
+                    WHEN (SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Absent','Rest Day','Holiday'))
+                       < (SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Rest Day','Holiday')) THEN 2
+                    ELSE 1
+                END,
+                Issue = CASE
+                    WHEN (SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Absent','Rest Day','Holiday'))
+                       < (SELECT COUNT(*) FROM AttendanceDetails d WHERE d.AttendanceId=@Id AND d.IsDeleted=0 AND d.Status NOT IN ('Rest Day','Holiday'))
+                    THEN 'Days worked less than total days after reprocess'
+                    ELSE NULL
+                END,
+                UpdatedBy=@UpdatedBy, UpdatedAt=GETDATE()
+            WHERE Id = @Id;
+
+            COMMIT TRANSACTION;
+
+            -- Return updated header
+            SELECT a.Id, a.PayrollPeriodId, a.EmployeeId, e.EmployeeCode,
+                e.LastName + ', ' + e.FirstName AS EmployeeName,
+                a.DaysWorked, a.TotalDays, a.LateHours, a.UndertimeHours,
+                a.OtHours, a.NightDiffHours, a.Status, a.Issue, a.ResolutionNotes
+            FROM Attendances a INNER JOIN Employees e ON e.Id = a.EmployeeId WHERE a.Id = @Id;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+            THROW;
+        END CATCH
         RETURN;
     END
 

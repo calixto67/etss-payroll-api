@@ -108,6 +108,14 @@ public class AttendanceController : BaseController
         return Ok(ApiResponse<object>.Ok(new { imported = count }, $"{count} attendance records imported."));
     }
 
+    [HttpPost("{id:int}/reprocess")]
+    [Authorize(Policy = "PayrollAdmin")]
+    public async Task<IActionResult> ReprocessDetails([FromRoute] int id, CancellationToken ct)
+    {
+        var result = await _service.ReprocessDetailsAsync(id, CurrentUser, ct);
+        return Ok(ApiResponse<AttendanceDto>.Ok(result, "Attendance details reprocessed."));
+    }
+
     [HttpGet("{id:int}/details")]
     [Authorize(Policy = "PayrollViewer")]
     public async Task<IActionResult> GetDetails([FromRoute] int id, CancellationToken ct)
@@ -125,5 +133,13 @@ public class AttendanceController : BaseController
     {
         var result = await _service.UpdateDetailsAsync(id, details, CurrentUser, ct);
         return Ok(ApiResponse<AttendanceDto>.Ok(result, "Attendance details updated."));
+    }
+
+    [HttpGet("employee-schedule/{employeeId:int}")]
+    [Authorize(Policy = "PayrollViewer")]
+    public async Task<IActionResult> GetEmployeeSchedule([FromRoute] int employeeId, CancellationToken ct)
+    {
+        var result = await _service.GetEmployeeScheduleAsync(employeeId, ct);
+        return Ok(ApiResponse<IEnumerable<EmployeeScheduleDayDto>>.Ok(result));
     }
 }

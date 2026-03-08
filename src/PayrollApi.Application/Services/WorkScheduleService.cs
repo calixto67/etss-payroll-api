@@ -32,6 +32,19 @@ public class WorkScheduleService : IWorkScheduleService
         public string? Description { get; set; }
         public bool IsDefault { get; set; }
         public int EmployeeCount { get; set; }
+        // Schedule rule columns
+        public decimal RegularHoursPerDay { get; set; }
+        public decimal HalfDayThresholdHours { get; set; }
+        public int GracePeriodMinutes { get; set; }
+        public int BreakDurationMinutes { get; set; }
+        public TimeSpan? NightDiffStartTime { get; set; }
+        public TimeSpan? NightDiffEndTime { get; set; }
+        public decimal NightDiffRate { get; set; }
+        public int OTMinimumMinutes { get; set; }
+        public int OTStartAfterMinutes { get; set; }
+        public bool OTRequiresApproval { get; set; }
+        public bool AllowNightDifferential { get; set; }
+        public bool AllowOvertime { get; set; }
         // Day columns (nullable for schedules with no days)
         public int? DayId { get; set; }
         public int? DayOfWeek { get; set; }
@@ -64,11 +77,23 @@ public class WorkScheduleService : IWorkScheduleService
         var first = rows.First();
         return new WorkScheduleDto
         {
-            Id            = first.Id,
-            Name          = first.Name,
-            Description   = first.Description,
-            IsDefault     = first.IsDefault,
-            EmployeeCount = first.EmployeeCount,
+            Id                    = first.Id,
+            Name                  = first.Name,
+            Description           = first.Description,
+            IsDefault             = first.IsDefault,
+            EmployeeCount         = first.EmployeeCount,
+            RegularHoursPerDay    = first.RegularHoursPerDay,
+            HalfDayThresholdHours = first.HalfDayThresholdHours,
+            GracePeriodMinutes    = first.GracePeriodMinutes,
+            BreakDurationMinutes  = first.BreakDurationMinutes,
+            NightDiffStartTime    = FormatTime(first.NightDiffStartTime),
+            NightDiffEndTime      = FormatTime(first.NightDiffEndTime),
+            NightDiffRate         = first.NightDiffRate,
+            OTMinimumMinutes      = first.OTMinimumMinutes,
+            OTStartAfterMinutes   = first.OTStartAfterMinutes,
+            OTRequiresApproval    = first.OTRequiresApproval,
+            AllowNightDifferential = first.AllowNightDifferential,
+            AllowOvertime          = first.AllowOvertime,
             Days = rows
                 .Where(r => r.DayId.HasValue)
                 .OrderBy(r => r.DayOfWeek)
@@ -96,6 +121,9 @@ public class WorkScheduleService : IWorkScheduleService
         EffectiveDate    = r.EffectiveDate,
         EndDate          = r.EndDate,
     };
+
+    private static TimeSpan ParseTime(string? time) =>
+        TimeSpan.TryParse(time, out var ts) ? ts : default;
 
     // ── Service methods ──────────────────────────────────────────────
 
@@ -149,12 +177,24 @@ public class WorkScheduleService : IWorkScheduleService
                 SP,
                 new
                 {
-                    ActionType  = "CREATE",
-                    Name        = dto.Name.Trim(),
-                    Description = dto.Description?.Trim(),
-                    IsDefault   = dto.IsDefault,
-                    DaysJson    = daysJson,
-                    CreatedBy   = createdBy,
+                    ActionType             = "CREATE",
+                    Name                   = dto.Name.Trim(),
+                    Description            = dto.Description?.Trim(),
+                    IsDefault              = dto.IsDefault,
+                    DaysJson               = daysJson,
+                    RegularHoursPerDay     = dto.RegularHoursPerDay,
+                    HalfDayThresholdHours  = dto.HalfDayThresholdHours,
+                    GracePeriodMinutes     = dto.GracePeriodMinutes,
+                    BreakDurationMinutes   = dto.BreakDurationMinutes,
+                    NightDiffStartTime     = ParseTime(dto.NightDiffStartTime),
+                    NightDiffEndTime       = ParseTime(dto.NightDiffEndTime),
+                    NightDiffRate          = dto.NightDiffRate,
+                    OTMinimumMinutes       = dto.OTMinimumMinutes,
+                    OTStartAfterMinutes    = dto.OTStartAfterMinutes,
+                    OTRequiresApproval     = dto.OTRequiresApproval,
+                    AllowNightDifferential = dto.AllowNightDifferential,
+                    AllowOvertime          = dto.AllowOvertime,
+                    CreatedBy              = createdBy,
                 },
                 ct);
 
@@ -180,13 +220,25 @@ public class WorkScheduleService : IWorkScheduleService
                 SP,
                 new
                 {
-                    ActionType  = "UPDATE",
-                    Id          = id,
-                    Name        = dto.Name.Trim(),
-                    Description = dto.Description?.Trim(),
-                    IsDefault   = dto.IsDefault,
-                    DaysJson    = daysJson,
-                    UpdatedBy   = updatedBy,
+                    ActionType             = "UPDATE",
+                    Id                     = id,
+                    Name                   = dto.Name.Trim(),
+                    Description            = dto.Description?.Trim(),
+                    IsDefault              = dto.IsDefault,
+                    DaysJson               = daysJson,
+                    RegularHoursPerDay     = dto.RegularHoursPerDay,
+                    HalfDayThresholdHours  = dto.HalfDayThresholdHours,
+                    GracePeriodMinutes     = dto.GracePeriodMinutes,
+                    BreakDurationMinutes   = dto.BreakDurationMinutes,
+                    NightDiffStartTime     = ParseTime(dto.NightDiffStartTime),
+                    NightDiffEndTime       = ParseTime(dto.NightDiffEndTime),
+                    NightDiffRate          = dto.NightDiffRate,
+                    OTMinimumMinutes       = dto.OTMinimumMinutes,
+                    OTStartAfterMinutes    = dto.OTStartAfterMinutes,
+                    OTRequiresApproval     = dto.OTRequiresApproval,
+                    AllowNightDifferential = dto.AllowNightDifferential,
+                    AllowOvertime          = dto.AllowOvertime,
+                    UpdatedBy              = updatedBy,
                 },
                 ct);
 

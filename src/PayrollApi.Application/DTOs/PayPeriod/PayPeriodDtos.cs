@@ -14,6 +14,9 @@ public record PayPeriodDto
     public string   Status        { get; init; } = string.Empty;
     public int      EmployeeCount { get; init; }
     public bool     IsClosed      { get; init; }
+    public bool     DeductSss       { get; init; }
+    public bool     DeductPhilHealth { get; init; }
+    public bool     DeductPagIbig   { get; init; }
     public DateTime CreatedAt     { get; init; }
 }
 
@@ -21,7 +24,10 @@ public record CreatePayPeriodDto(
     DateTime   StartDate,
     DateTime   EndDate,
     DateTime   PayDate,
-    PeriodType PeriodType);
+    PeriodType PeriodType,
+    bool?      DeductSss = null,
+    bool?      DeductPhilHealth = null,
+    bool?      DeductPagIbig = null);
 
 /// <summary>Accepts status as a string (e.g. "open", "computed") for easy JSON binding.</summary>
 public record UpdatePayPeriodStatusDto(string Status);

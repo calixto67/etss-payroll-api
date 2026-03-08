@@ -19,6 +19,11 @@ public sealed class CompanySettingsDto
     public decimal DefaultSssContribution { get; init; } = 900m;
     public decimal DefaultPhilHealthContribution { get; init; } = 500m;
     public decimal DefaultPagIbigContribution { get; init; } = 200m;
+
+    // Contribution Timing
+    public string ContributionTimingSss { get; init; } = "1st_half";
+    public string ContributionTimingPhilHealth { get; init; } = "1st_half";
+    public string ContributionTimingPagIbig { get; init; } = "1st_half";
 }
 
 public sealed class UpdateCompanySettingsDto
@@ -31,6 +36,9 @@ public sealed class UpdateCompanySettingsDto
     public string? EmployerSssNo { get; init; }
     public string? IndustryClassification { get; init; }
     public string? DateFormat { get; init; }
+    public string? ContributionTimingSss { get; init; }
+    public string? ContributionTimingPhilHealth { get; init; }
+    public string? ContributionTimingPagIbig { get; init; }
 }
 
 public sealed class UpdateDeductionSettingsDto

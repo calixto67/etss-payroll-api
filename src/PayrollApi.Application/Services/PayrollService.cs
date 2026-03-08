@@ -105,6 +105,24 @@ public class PayrollService : IPayrollService
         catch (SqlException ex) { _logger.LogError(ex, "SQL error in GetByPeriodAsync"); throw new AppException(ex.Message); }
     }
 
+    public async Task<IEnumerable<PayrollRecordDetailDto>> GetDetailsAsync(int payrollRecordId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var rows = await _sql.QueryAsync<PayrollRecordDetailRow>(
+                "sp_Payroll", new { ActionType = "GET_DETAILS", Id = payrollRecordId }, cancellationToken);
+            return rows.Select(r => new PayrollRecordDetailDto
+            {
+                Id = r.Id,
+                PayrollRecordId = r.PayrollRecordId,
+                ItemType = r.ItemType,
+                ItemName = r.ItemName,
+                Amount = r.Amount
+            });
+        }
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in GetDetailsAsync {Id}", payrollRecordId); throw new AppException(ex.Message); }
+    }
+
     private static PayrollRecordDto MapToDto(PayrollRecordRow r) => new()
     {
         Id = r.Id, EmployeeId = r.EmployeeId, PayrollPeriodId = r.PayrollPeriodId,
@@ -118,6 +136,15 @@ public class PayrollService : IPayrollService
         NetPay = r.NetPay, Status = r.StatusName ?? $"Unknown({r.Status})",
         ProcessedAt = r.ProcessedAt, ProcessedBy = r.ProcessedBy, CreatedAt = r.CreatedAt
     };
+
+    private sealed class PayrollRecordDetailRow
+    {
+        public int Id { get; set; }
+        public int PayrollRecordId { get; set; }
+        public string ItemType { get; set; } = "";
+        public string ItemName { get; set; } = "";
+        public decimal Amount { get; set; }
+    }
 
     private sealed class PayrollRecordRow
     {

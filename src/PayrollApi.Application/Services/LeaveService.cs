@@ -79,6 +79,15 @@ public class LeaveService : ILeaveService
         _ => "Unknown"
     };
 
+    private static int? HolidayTypeInt(string? type) => type?.Trim().ToLower() switch
+    {
+        "public"   => 1,
+        "company"  => 2,
+        "regional" => 3,
+        "special"  => 4,
+        _          => null
+    };
+
     private static string YearEndStatusName(int status) => status switch
     {
         1 => "Completed",
@@ -384,7 +393,7 @@ public class LeaveService : ILeaveService
         {
             var rows = await _sql.QueryAsync<HolidayRow>(
                 "sp_Leave",
-                new { ActionType = "GET_HOLIDAYS", Search = search, Type = type },
+                new { ActionType = "GET_HOLIDAYS", Search = search, Type = HolidayTypeInt(type) },
                 cancellationToken);
 
             return rows.Select(MapHoliday);
@@ -409,7 +418,7 @@ public class LeaveService : ILeaveService
                     ActionType  = "CREATE_HOLIDAY",
                     Name        = dto.Name,
                     Date        = dto.Date,
-                    Type        = dto.Type,
+                    Type        = HolidayTypeInt(dto.Type) ?? throw new AppException($"Invalid holiday type '{dto.Type}'."),
                     Region      = dto.Region,
                     IsRecurring = dto.IsRecurring,
                     CreatedBy   = createdBy
