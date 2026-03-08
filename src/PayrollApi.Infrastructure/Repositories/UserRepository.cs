@@ -20,6 +20,11 @@ public class UserRepository : BaseRepository<User>, IUserRepository
             u.Email == email && (!excludeId.HasValue || u.Id != excludeId.Value),
             cancellationToken);
 
+    public async Task<bool> IsUsernameUniqueAsync(string username, int? excludeId = null, CancellationToken cancellationToken = default) =>
+        !await _dbSet.AnyAsync(u =>
+            u.Username == username && (!excludeId.HasValue || u.Id != excludeId.Value),
+            cancellationToken);
+
     public async Task<IEnumerable<User>> GetAllActiveAsync(CancellationToken cancellationToken = default) =>
         await _dbSet
             .Where(u => u.IsActive && !u.IsDeleted)

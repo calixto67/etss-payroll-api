@@ -17,10 +17,213 @@ namespace PayrollApi.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "9.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.AllowanceType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<bool>("IsDeMinimis")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("TaxExemptLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AllowanceTypes_Name");
+
+                    b.ToTable("AllowanceTypes", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.Attendance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("DaysWorked")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Issue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("LateHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("NightDiffHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("OtHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("PayrollPeriodId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("TotalDays")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("UndertimeHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("PayrollPeriodId", "EmployeeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Attendances_Period_Employee");
+
+                    b.ToTable("Attendances", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.AttendanceDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttendanceId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("LateHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("NightDiffHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("OtHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<TimeSpan?>("TimeIn")
+                        .HasColumnType("time");
+
+                    b.Property<TimeSpan?>("TimeOut")
+                        .HasColumnType("time");
+
+                    b.Property<decimal>("UndertimeHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AttendanceDetails_Attendance_Date");
+
+                    b.ToTable("AttendanceDetails", (string)null);
+                });
 
             modelBuilder.Entity("PayrollApi.Domain.Entities.Branch", b =>
                 {
@@ -89,6 +292,12 @@ namespace PayrollApi.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BirNo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CompanyName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -100,16 +309,41 @@ namespace PayrollApi.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("DateFormat")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DateStarted")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("DefaultPagIbigContribution")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DefaultPhilHealthContribution")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DefaultSssContribution")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("DeletedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("EmployerSssNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IndustryClassification")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("LogoPath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TaxNo")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -121,6 +355,66 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CompanySettings");
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.DeductionType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<decimal>("DefaultAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsMandatory")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_DeductionTypes_Name");
+
+                    b.ToTable("DeductionTypes", (string)null);
                 });
 
             modelBuilder.Entity("PayrollApi.Domain.Entities.Department", b =>
@@ -275,6 +569,11 @@ namespace PayrollApi.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<decimal>("PagIbigContribution")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(200m);
+
                     b.Property<string>("PagIbigNumber")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -299,6 +598,11 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.Property<string>("PersonalEmail")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<decimal>("PhilHealthContribution")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(500m);
 
                     b.Property<string>("PhilHealthNumber")
                         .IsRequired()
@@ -346,6 +650,11 @@ namespace PayrollApi.Infrastructure.Migrations
 
                     b.Property<bool>("SameAsPresentAddress")
                         .HasColumnType("bit");
+
+                    b.Property<decimal>("SssContribution")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(900m);
 
                     b.Property<string>("SssNumber")
                         .IsRequired()
@@ -540,6 +849,61 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.ToTable("EmployeeEmergencyContacts", (string)null);
                 });
 
+            modelBuilder.Entity("PayrollApi.Domain.Entities.EmployeeSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("WorkScheduleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId")
+                        .HasDatabaseName("IX_EmployeeSchedules_EmployeeId");
+
+                    b.HasIndex("WorkScheduleId");
+
+                    b.ToTable("EmployeeSchedules", (string)null);
+                });
+
             modelBuilder.Entity("PayrollApi.Domain.Entities.EmployeeStatusHistory", b =>
                 {
                     b.Property<int>("Id")
@@ -601,6 +965,48 @@ namespace PayrollApi.Infrastructure.Migrations
                         .HasDatabaseName("IX_EmployeeStatusHistory_EmployeeId");
 
                     b.ToTable("EmployeeStatusHistory", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.GlobalConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ConfigName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<byte[]>("ConfigValue")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConfigName")
+                        .IsUnique();
+
+                    b.ToTable("GlobalConfig", (string)null);
                 });
 
             modelBuilder.Entity("PayrollApi.Domain.Entities.Holiday", b =>
@@ -811,6 +1217,202 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.ToTable("LeaveBalances", (string)null);
                 });
 
+            modelBuilder.Entity("PayrollApi.Domain.Entities.LeaveType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccrualMethod")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AllowCashConversion")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("BalanceDeductionMode")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("CarryForwardMaxDays")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("CarryForwardPolicy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("CountHolidaysAsLeave")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CountWeekendsAsLeave")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<decimal>("DefaultDaysPerYear")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("EligibleEmploymentTypes")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("EntitlementBasis")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GenderRestriction")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Granularity")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("MaxCashConversionDays")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("MinServiceMonths")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinimumNoticeDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("PaidPercentage")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("PayCategory")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresApproval")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequiresAttachment")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("TenureIncrementDays")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("TenureMaxDays")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("IX_LeaveTypes_Code")
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_LeaveTypes_Name");
+
+                    b.ToTable("LeaveTypes", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.LeaveYearEndBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BalancesCreated")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BalancesExpired")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CarryForwardsApplied")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EmployeesProcessed")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProcessedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RolledBackAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RolledBackBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SnapshotJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("LeaveYearEndBatches");
+                });
+
             modelBuilder.Entity("PayrollApi.Domain.Entities.PayrollPeriod", b =>
                 {
                     b.Property<int>("Id")
@@ -841,18 +1443,29 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<DateTime>("PayDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("PeriodCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<int>("PeriodType")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -862,7 +1475,15 @@ namespace PayrollApi.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PayrollPeriods");
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PayrollPeriods_Name");
+
+                    b.HasIndex("PeriodCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PayrollPeriods_PeriodCode");
+
+                    b.ToTable("PayrollPeriods", (string)null);
                 });
 
             modelBuilder.Entity("PayrollApi.Domain.Entities.PayrollRecord", b =>
@@ -1118,6 +1739,144 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("PayrollApi.Domain.Entities.SalaryHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("NewSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PreviousSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("SalaryFrequency")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId")
+                        .HasDatabaseName("IX_SalaryHistory_EmployeeId");
+
+                    b.ToTable("SalaryHistory", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.ScheduleRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BreakDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("GracePeriodMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("HalfDayThresholdHours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeSpan>("NightDiffEndTime")
+                        .HasColumnType("time");
+
+                    b.Property<decimal>("NightDiffRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<TimeSpan>("NightDiffStartTime")
+                        .HasColumnType("time");
+
+                    b.Property<int>("OTMinimumMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("OTRequiresApproval")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("OTStartAfterMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("RegularHoursPerDay")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ScheduleRules", (string)null);
+                });
+
             modelBuilder.Entity("PayrollApi.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -1199,6 +1958,153 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("PayrollApi.Domain.Entities.WorkSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_WorkSchedules_Name");
+
+                    b.ToTable("WorkSchedules", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.WorkScheduleDay", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<TimeSpan?>("BreakEnd")
+                        .HasColumnType("time");
+
+                    b.Property<TimeSpan?>("BreakStart")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRestDay")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeSpan?>("ShiftEnd")
+                        .HasColumnType("time");
+
+                    b.Property<TimeSpan?>("ShiftStart")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("WorkScheduleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkScheduleId", "DayOfWeek")
+                        .IsUnique()
+                        .HasDatabaseName("IX_WorkScheduleDays_ScheduleDay");
+
+                    b.ToTable("WorkScheduleDays", (string)null);
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.Attendance", b =>
+                {
+                    b.HasOne("PayrollApi.Domain.Entities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PayrollApi.Domain.Entities.PayrollPeriod", "PayrollPeriod")
+                        .WithMany()
+                        .HasForeignKey("PayrollPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("PayrollPeriod");
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.AttendanceDetail", b =>
+                {
+                    b.HasOne("PayrollApi.Domain.Entities.Attendance", "Attendance")
+                        .WithMany("Details")
+                        .HasForeignKey("AttendanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attendance");
+                });
+
             modelBuilder.Entity("PayrollApi.Domain.Entities.Employee", b =>
                 {
                     b.HasOne("PayrollApi.Domain.Entities.Branch", "Branch")
@@ -1254,6 +2160,25 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("PayrollApi.Domain.Entities.EmployeeSchedule", b =>
+                {
+                    b.HasOne("PayrollApi.Domain.Entities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PayrollApi.Domain.Entities.WorkSchedule", "WorkSchedule")
+                        .WithMany("EmployeeSchedules")
+                        .HasForeignKey("WorkScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("WorkSchedule");
+                });
+
             modelBuilder.Entity("PayrollApi.Domain.Entities.EmployeeStatusHistory", b =>
                 {
                     b.HasOne("PayrollApi.Domain.Entities.Employee", "Employee")
@@ -1276,7 +2201,7 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.HasOne("PayrollApi.Domain.Entities.PayrollPeriod", "PayrollPeriod")
                         .WithMany("PayrollRecords")
                         .HasForeignKey("PayrollPeriodId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Employee");
@@ -1306,6 +2231,17 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("PayrollApi.Domain.Entities.SalaryHistory", b =>
+                {
+                    b.HasOne("PayrollApi.Domain.Entities.Employee", "Employee")
+                        .WithMany("SalaryHistory")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("PayrollApi.Domain.Entities.User", b =>
                 {
                     b.HasOne("PayrollApi.Domain.Entities.Employee", "Employee")
@@ -1321,6 +2257,22 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("PermissionRole");
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.WorkScheduleDay", b =>
+                {
+                    b.HasOne("PayrollApi.Domain.Entities.WorkSchedule", "WorkSchedule")
+                        .WithMany("Days")
+                        .HasForeignKey("WorkScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkSchedule");
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.Attendance", b =>
+                {
+                    b.Navigation("Details");
                 });
 
             modelBuilder.Entity("PayrollApi.Domain.Entities.Branch", b =>
@@ -1341,6 +2293,8 @@ namespace PayrollApi.Infrastructure.Migrations
 
                     b.Navigation("PayrollRecords");
 
+                    b.Navigation("SalaryHistory");
+
                     b.Navigation("StatusHistory");
                 });
 
@@ -1359,6 +2313,13 @@ namespace PayrollApi.Infrastructure.Migrations
                     b.Navigation("Permissions");
 
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("PayrollApi.Domain.Entities.WorkSchedule", b =>
+                {
+                    b.Navigation("Days");
+
+                    b.Navigation("EmployeeSchedules");
                 });
 #pragma warning restore 612, 618
         }

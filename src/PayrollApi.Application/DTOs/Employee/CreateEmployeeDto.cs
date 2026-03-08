@@ -56,4 +56,7 @@ public sealed class CreateEmployeeDto
     public DateTime SalaryEffectiveDate { get; init; }
     public string   BankAccountNumber   { get; init; } = string.Empty;
     public string   BankName            { get; init; } = string.Empty;
+
+    // Other
+    public string? BiometricId { get; init; }
 }

@@ -9,4 +9,6 @@ public interface ICompanySettingsService
 
     /// <summary>Saves the uploaded logo file and returns the public URL.</summary>
     Task<string> UploadLogoAsync(Stream fileStream, string fileName, string updatedBy, CancellationToken cancellationToken = default);
+
+    Task<CompanySettingsDto> UpdateDeductionSettingsAsync(UpdateDeductionSettingsDto dto, string updatedBy, CancellationToken cancellationToken = default);
 }

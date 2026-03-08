@@ -50,7 +50,7 @@ public class LeaveRepository : ILeaveRepository
 
     public async Task<string> GenerateReferenceNumberAsync(CancellationToken cancellationToken = default)
     {
-        var year = DateTime.UtcNow.Year;
+        var year = DateTime.Now.Year;
         var count = await _context.LeaveApplications
             .CountAsync(a => a.SubmittedOn.Year == year, cancellationToken);
         return $"LVA-{year}-{(count + 1):D5}";
@@ -81,6 +81,47 @@ public class LeaveRepository : ILeaveRepository
     public Task UpdateBalanceAsync(LeaveBalance balance, CancellationToken cancellationToken = default)
     {
         _context.LeaveBalances.Update(balance);
+        return Task.CompletedTask;
+    }
+
+    public async Task<bool> BalanceExistsAsync(string employeeCode, string leaveType, CancellationToken cancellationToken = default) =>
+        await _context.LeaveBalances.AnyAsync(b => b.EmployeeCode == employeeCode && b.LeaveType == leaveType, cancellationToken);
+
+    public async Task DeleteBalanceAsync(int id, string deletedBy, CancellationToken cancellationToken = default)
+    {
+        var balance = await _context.LeaveBalances.FindAsync(new object[] { id }, cancellationToken);
+        if (balance is null) return;
+        balance.IsDeleted = true;
+        balance.DeletedAt = DateTime.Now;
+        balance.DeletedBy = deletedBy;
+        _context.LeaveBalances.Update(balance);
+    }
+
+    public async Task<IEnumerable<LeaveBalance>> GetAllBalancesAsync(CancellationToken cancellationToken = default) =>
+        await _context.LeaveBalances.ToListAsync(cancellationToken);
+
+    public async Task AddBalancesRangeAsync(IEnumerable<LeaveBalance> balances, CancellationToken cancellationToken = default) =>
+        await _context.LeaveBalances.AddRangeAsync(balances, cancellationToken);
+
+    public Task RemoveBalancesRangeAsync(IEnumerable<LeaveBalance> balances, CancellationToken cancellationToken = default)
+    {
+        _context.LeaveBalances.RemoveRange(balances);
+        return Task.CompletedTask;
+    }
+
+    // ── Year-End Batches ─────────────────────────────────────────
+    public async Task<LeaveYearEndBatch?> GetLastCompletedBatchAsync(CancellationToken cancellationToken = default) =>
+        await _context.LeaveYearEndBatches
+            .Where(b => b.Status == LeaveYearEndStatus.Completed)
+            .OrderByDescending(b => b.ProcessedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task AddBatchAsync(LeaveYearEndBatch batch, CancellationToken cancellationToken = default) =>
+        await _context.LeaveYearEndBatches.AddAsync(batch, cancellationToken);
+
+    public Task UpdateBatchAsync(LeaveYearEndBatch batch, CancellationToken cancellationToken = default)
+    {
+        _context.LeaveYearEndBatches.Update(batch);
         return Task.CompletedTask;
     }
 
@@ -115,7 +156,7 @@ public class LeaveRepository : ILeaveRepository
         var holiday = await _context.Holidays.FindAsync(new object[] { id }, cancellationToken);
         if (holiday is null) return;
         holiday.IsDeleted  = true;
-        holiday.DeletedAt  = DateTime.UtcNow;
+        holiday.DeletedAt  = DateTime.Now;
         holiday.DeletedBy  = deletedBy;
         _context.Holidays.Update(holiday);
     }

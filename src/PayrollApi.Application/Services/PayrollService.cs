@@ -1,24 +1,21 @@
-using AutoMapper;
 using Microsoft.Extensions.Logging;
+using Microsoft.Data.SqlClient;
 using PayrollApi.Application.Common.Exceptions;
 using PayrollApi.Application.Common.Models;
 using PayrollApi.Application.DTOs.Payroll;
 using PayrollApi.Application.Services.Interfaces;
-using PayrollApi.Domain.Entities;
 using PayrollApi.Domain.Interfaces;
 
 namespace PayrollApi.Application.Services;
 
 public class PayrollService : IPayrollService
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly ISqlExecutor _sql;
     private readonly ILogger<PayrollService> _logger;
 
-    public PayrollService(IUnitOfWork unitOfWork, IMapper mapper, ILogger<PayrollService> logger)
+    public PayrollService(ISqlExecutor sql, ILogger<PayrollService> logger)
     {
-        _unitOfWork = unitOfWork;
-        _mapper = mapper;
+        _sql = sql;
         _logger = logger;
     }
 
@@ -26,181 +23,127 @@ public class PayrollService : IPayrollService
         PaginationParams pagination, int? employeeId, int? periodId,
         CancellationToken cancellationToken = default)
     {
-        var (items, totalCount) = await _unitOfWork.PayrollRecords.GetPagedAsync(
-            pagination.Page, pagination.PageSize, employeeId, periodId, null, cancellationToken);
+        try
+        {
+            var (rows, totalCount) = await _sql.QueryPagedAsync<PayrollRecordRow>(
+                "sp_Payroll",
+                new { ActionType = "GET_PAGED", Page = pagination.Page, PageSize = pagination.PageSize, EmployeeId = employeeId, PeriodId = periodId },
+                cancellationToken);
 
-        var dtos = _mapper.Map<IEnumerable<PayrollRecordDto>>(items);
-        return PagedResult<PayrollRecordDto>.Create(dtos, totalCount, pagination.Page, pagination.PageSize);
+            var dtos = rows.Select(MapToDto);
+            return PagedResult<PayrollRecordDto>.Create(dtos, totalCount, pagination.Page, pagination.PageSize);
+        }
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in GetPagedAsync"); throw new AppException(ex.Message); }
     }
 
     public async Task<PayrollRecordDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var record = await _unitOfWork.PayrollRecords.GetByIdAsync(id, cancellationToken)
-            ?? throw new NotFoundException(nameof(PayrollRecord), id);
-
-        return _mapper.Map<PayrollRecordDto>(record);
+        try
+        {
+            var row = await _sql.QueryFirstOrDefaultAsync<PayrollRecordRow>(
+                "sp_Payroll", new { ActionType = "GET_BY_ID", Id = id }, cancellationToken)
+                ?? throw new NotFoundException("PayrollRecord", id);
+            return MapToDto(row);
+        }
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in GetByIdAsync {Id}", id); throw new AppException(ex.Message); }
     }
 
     public async Task<IEnumerable<PayrollRecordDto>> RunPayrollAsync(
         RunPayrollDto dto, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Running payroll for period {PeriodId} initiated by {InitiatedBy}",
-            dto.PayrollPeriodId, dto.InitiatedBy);
-
-        var employees = dto.EmployeeIds?.Any() == true
-            ? await _unitOfWork.Employees.FindAsync(
-                e => dto.EmployeeIds.Contains(e.Id) && e.Status == EmploymentStatus.Active,
-                cancellationToken)
-            : await _unitOfWork.Employees.FindAsync(
-                e => e.Status == EmploymentStatus.Active,
-                cancellationToken);
-
-        await _unitOfWork.BeginTransactionAsync(cancellationToken);
-
+        _logger.LogInformation("Running payroll for period {PeriodId} by {By}", dto.PayrollPeriodId, dto.InitiatedBy);
         try
         {
-            var results = new List<PayrollRecord>();
+            var employeeIdsCsv = dto.EmployeeIds?.Any() == true ? string.Join(",", dto.EmployeeIds) : null;
 
-            foreach (var employee in employees)
-            {
-                var existing = await _unitOfWork.PayrollRecords
-                    .GetByEmployeeAndPeriodAsync(employee.Id, dto.PayrollPeriodId, cancellationToken);
+            var rows = await _sql.QueryAsync<PayrollRecordRow>(
+                "sp_Payroll",
+                new { ActionType = "RUN", PeriodId = dto.PayrollPeriodId, EmployeeIds = employeeIdsCsv, InitiatedBy = dto.InitiatedBy },
+                cancellationToken);
 
-                if (existing is not null)
-                {
-                    _logger.LogWarning("Payroll already exists for Employee {EmployeeId} Period {PeriodId} — skipping.",
-                        employee.Id, dto.PayrollPeriodId);
-                    continue;
-                }
-
-                var record = ComputePayroll(employee, dto.PayrollPeriodId, dto.InitiatedBy);
-                await _unitOfWork.PayrollRecords.AddAsync(record, cancellationToken);
-                results.Add(record);
-            }
-
-            await _unitOfWork.CommitAsync(cancellationToken);
-
-            _logger.LogInformation("Payroll run complete. {Count} records created.", results.Count);
-
-            return _mapper.Map<IEnumerable<PayrollRecordDto>>(results);
+            var dtos = rows.Select(MapToDto).ToList();
+            _logger.LogInformation("Payroll run complete. {Count} records created.", dtos.Count);
+            return dtos;
         }
-        catch
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in RunPayrollAsync"); throw new AppException(ex.Message); }
+    }
+
+    public async Task<PayrollRecordDto> ApproveAsync(int id, string approvedBy, CancellationToken cancellationToken = default)
+    {
+        try
         {
-            await _unitOfWork.RollbackAsync(cancellationToken);
-            throw;
+            var row = await _sql.QueryFirstOrDefaultAsync<PayrollRecordRow>(
+                "sp_Payroll", new { ActionType = "APPROVE", Id = id, ApprovedBy = approvedBy }, cancellationToken)
+                ?? throw new NotFoundException("PayrollRecord", id);
+            _logger.LogInformation("Payroll record {Id} approved by {By}", id, approvedBy);
+            return MapToDto(row);
         }
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in ApproveAsync {Id}", id); throw new AppException(ex.Message); }
     }
 
-    public async Task<PayrollRecordDto> ApproveAsync(
-        int id, string approvedBy, CancellationToken cancellationToken = default)
+    public async Task<PayrollRecordDto> ReleaseAsync(int id, string releasedBy, CancellationToken cancellationToken = default)
     {
-        var record = await _unitOfWork.PayrollRecords.GetByIdAsync(id, cancellationToken)
-            ?? throw new NotFoundException(nameof(PayrollRecord), id);
-
-        if (record.Status != PayrollStatus.ForApproval)
-            throw new AppException($"Payroll record {id} is not in 'ForApproval' status.");
-
-        record.Status = PayrollStatus.Approved;
-        record.UpdatedBy = approvedBy;
-        record.UpdatedAt = DateTime.UtcNow;
-
-        await _unitOfWork.PayrollRecords.UpdateAsync(record, cancellationToken);
-        await _unitOfWork.CommitAsync(cancellationToken);
-
-        _logger.LogInformation("Payroll record {Id} approved by {ApprovedBy}", id, approvedBy);
-
-        return _mapper.Map<PayrollRecordDto>(record);
-    }
-
-    public async Task<PayrollRecordDto> ReleaseAsync(
-        int id, string releasedBy, CancellationToken cancellationToken = default)
-    {
-        var record = await _unitOfWork.PayrollRecords.GetByIdAsync(id, cancellationToken)
-            ?? throw new NotFoundException(nameof(PayrollRecord), id);
-
-        if (record.Status != PayrollStatus.Approved)
-            throw new AppException($"Payroll record {id} must be approved before release.");
-
-        record.Status = PayrollStatus.Released;
-        record.ProcessedAt = DateTime.UtcNow;
-        record.ProcessedBy = releasedBy;
-        record.UpdatedBy = releasedBy;
-        record.UpdatedAt = DateTime.UtcNow;
-
-        await _unitOfWork.PayrollRecords.UpdateAsync(record, cancellationToken);
-        await _unitOfWork.CommitAsync(cancellationToken);
-
-        _logger.LogInformation("Payroll record {Id} released by {ReleasedBy}", id, releasedBy);
-
-        return _mapper.Map<PayrollRecordDto>(record);
-    }
-
-    // ─── Private: Payroll Computation ─────────────────────────────────────────
-
-    private static PayrollRecord ComputePayroll(Employee employee, int periodId, string initiatedBy)
-    {
-        var basicPay = employee.BasicSalary;
-        var grossPay = basicPay; // extend with OT, holiday, allowances as needed
-
-        // Philippine statutory deductions (simplified flat-rate placeholders)
-        var sss = ComputeSss(basicPay);
-        var philHealth = ComputePhilHealth(basicPay);
-        var pagIbig = 100m; // flat Pag-IBIG employee share
-        var tax = ComputeWithholdingTax(grossPay - sss - philHealth - pagIbig);
-
-        var totalDeductions = sss + philHealth + pagIbig + tax;
-
-        return new PayrollRecord
+        try
         {
-            EmployeeId = employee.Id,
-            PayrollPeriodId = periodId,
-            BasicPay = basicPay,
-            OvertimePay = 0,
-            HolidayPay = 0,
-            Allowances = 0,
-            GrossPay = grossPay,
-            SssDeduction = sss,
-            PhilHealthDeduction = philHealth,
-            PagIbigDeduction = pagIbig,
-            TaxWithheld = tax,
-            OtherDeductions = 0,
-            TotalDeductions = totalDeductions,
-            NetPay = grossPay - totalDeductions,
-            Status = PayrollStatus.ForApproval,
-            CreatedBy = initiatedBy,
-            CreatedAt = DateTime.UtcNow,
-        };
+            var row = await _sql.QueryFirstOrDefaultAsync<PayrollRecordRow>(
+                "sp_Payroll", new { ActionType = "RELEASE", Id = id, ReleasedBy = releasedBy }, cancellationToken)
+                ?? throw new NotFoundException("PayrollRecord", id);
+            _logger.LogInformation("Payroll record {Id} released by {By}", id, releasedBy);
+            return MapToDto(row);
+        }
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in ReleaseAsync {Id}", id); throw new AppException(ex.Message); }
     }
 
-    private static decimal ComputeSss(decimal monthlySalary)
+    public async Task<IEnumerable<PayrollRecordDto>> GetByPeriodAsync(int periodId, CancellationToken cancellationToken = default)
     {
-        // SSS 2024 table simplified — replace with actual contribution table
-        return monthlySalary switch
+        try
         {
-            <= 4249 => 180m,
-            <= 29750 => Math.Round(monthlySalary * 0.045m / 10, MidpointRounding.AwayFromZero) * 10,
-            _ => 1350m
-        };
+            var rows = await _sql.QueryAsync<PayrollRecordRow>(
+                "sp_Payroll", new { ActionType = "GET_BY_PERIOD", PeriodId = periodId }, cancellationToken);
+            return rows.Select(MapToDto);
+        }
+        catch (SqlException ex) { _logger.LogError(ex, "SQL error in GetByPeriodAsync"); throw new AppException(ex.Message); }
     }
 
-    private static decimal ComputePhilHealth(decimal monthlySalary)
+    private static PayrollRecordDto MapToDto(PayrollRecordRow r) => new()
     {
-        // PhilHealth 2024: 5% of salary, employee share = 2.5%, max 50k salary base
-        var basis = Math.Min(monthlySalary, 50000m);
-        return Math.Round(basis * 0.025m, 2);
-    }
+        Id = r.Id, EmployeeId = r.EmployeeId, PayrollPeriodId = r.PayrollPeriodId,
+        EmployeeName = r.EmployeeName, EmployeeCode = r.EmployeeCode,
+        PeriodCode = r.PeriodCode, PeriodName = r.PeriodName,
+        BasicPay = r.BasicPay, OvertimePay = r.OvertimePay, HolidayPay = r.HolidayPay,
+        Allowances = r.Allowances, GrossPay = r.GrossPay,
+        SssDeduction = r.SssDeduction, PhilHealthDeduction = r.PhilHealthDeduction,
+        PagIbigDeduction = r.PagIbigDeduction, TaxWithheld = r.TaxWithheld,
+        OtherDeductions = r.OtherDeductions, TotalDeductions = r.TotalDeductions,
+        NetPay = r.NetPay, Status = r.StatusName ?? $"Unknown({r.Status})",
+        ProcessedAt = r.ProcessedAt, ProcessedBy = r.ProcessedBy, CreatedAt = r.CreatedAt
+    };
 
-    private static decimal ComputeWithholdingTax(decimal taxableIncome)
+    private sealed class PayrollRecordRow
     {
-        // BIR 2023 monthly tax table (TRAIN Law)
-        return taxableIncome switch
-        {
-            <= 20833 => 0m,
-            <= 33332 => Math.Round((taxableIncome - 20833m) * 0.15m, 2),
-            <= 66666 => Math.Round(1875m + (taxableIncome - 33333m) * 0.20m, 2),
-            <= 166666 => Math.Round(8541.80m + (taxableIncome - 66667m) * 0.25m, 2),
-            <= 666666 => Math.Round(33541.80m + (taxableIncome - 166667m) * 0.30m, 2),
-            _ => Math.Round(183541.80m + (taxableIncome - 666667m) * 0.35m, 2)
-        };
+        public int Id { get; set; }
+        public int EmployeeId { get; set; }
+        public int PayrollPeriodId { get; set; }
+        public string EmployeeName { get; set; } = "";
+        public string EmployeeCode { get; set; } = "";
+        public string PeriodCode { get; set; } = "";
+        public string PeriodName { get; set; } = "";
+        public decimal BasicPay { get; set; }
+        public decimal OvertimePay { get; set; }
+        public decimal HolidayPay { get; set; }
+        public decimal Allowances { get; set; }
+        public decimal GrossPay { get; set; }
+        public decimal SssDeduction { get; set; }
+        public decimal PhilHealthDeduction { get; set; }
+        public decimal PagIbigDeduction { get; set; }
+        public decimal TaxWithheld { get; set; }
+        public decimal OtherDeductions { get; set; }
+        public decimal TotalDeductions { get; set; }
+        public decimal NetPay { get; set; }
+        public int Status { get; set; }
+        public string? StatusName { get; set; }
+        public DateTime? ProcessedAt { get; set; }
+        public string? ProcessedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

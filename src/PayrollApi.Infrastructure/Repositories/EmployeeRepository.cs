@@ -29,6 +29,7 @@ public class EmployeeRepository : BaseRepository<Employee>, IEmployeeRepository
             .Include(e => e.StatusHistory.OrderByDescending(h => h.ChangedAt))
             .Include(e => e.EmergencyContacts)
             .Include(e => e.Documents)
+            .Include(e => e.SalaryHistory.OrderByDescending(h => h.EffectiveDate))
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
     public async Task<(IEnumerable<Employee> Items, int TotalCount)> GetPagedAsync(

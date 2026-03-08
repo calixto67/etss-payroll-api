@@ -47,7 +47,7 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
         if (entity is null) return;
 
         entity.IsDeleted = true;
-        entity.DeletedAt = DateTime.UtcNow;
+        entity.DeletedAt = DateTime.Now;
         entity.DeletedBy = deletedBy;
         _dbSet.Update(entity);
     }

@@ -8,6 +8,7 @@ public sealed class PayrollRecordDto
     public string EmployeeCode { get; init; } = string.Empty;
     public int PayrollPeriodId { get; init; }
     public string PeriodCode { get; init; } = string.Empty;
+    public string PeriodName { get; init; } = string.Empty;
     public decimal BasicPay { get; init; }
     public decimal OvertimePay { get; init; }
     public decimal HolidayPay { get; init; }

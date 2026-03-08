@@ -25,6 +25,10 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    // Listen on all interfaces in Development so the API is reachable via LAN IP (e.g. http://192.168.100.64:5000)
+    if (builder.Environment.IsDevelopment())
+        builder.WebHost.UseUrls("http://0.0.0.0:5000");
+
     // ─── Serilog ──────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, config) => config
         .ReadFrom.Configuration(ctx.Configuration)
@@ -168,11 +172,23 @@ try
 
     if (app.Environment.IsDevelopment())
     {
+        // Prevent cached Swagger/OpenAPI doc so UI shows same endpoints when accessed via IP (e.g. 192.168.100.224)
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/swagger"))
+            {
+                context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+                context.Response.Headers.Pragma = "no-cache";
+                context.Response.Headers.Expires = "0";
+            }
+            await next();
+        });
         app.UseSwagger();
         app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "ETSS Payroll API v1"));
     }
 
-    app.UseHttpsRedirection();
+    if (!app.Environment.IsDevelopment())
+        app.UseHttpsRedirection();
     app.UseStaticFiles(); // serves wwwroot (logo uploads, etc.)
     app.UseCors("AllowAngularClient");
     app.UseAuthentication();

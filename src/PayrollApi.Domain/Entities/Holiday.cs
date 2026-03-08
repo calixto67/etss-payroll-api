@@ -13,5 +13,6 @@ public enum HolidayType
 {
     Public   = 1,
     Company  = 2,
-    Regional = 3
+    Regional = 3,
+    Special  = 4
 }

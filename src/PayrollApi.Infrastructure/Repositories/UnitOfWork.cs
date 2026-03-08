@@ -17,9 +17,19 @@ public class UnitOfWork : IUnitOfWork
     public IEmployeeDocumentRepository      EmployeeDocuments      { get; }
     public IBranchRepository                Branches               { get; }
     public IPayrollRepository               PayrollRecords         { get; }
+    public IPayPeriodRepository             PayPeriods             { get; }
     public ILeaveRepository                 Leave                  { get; }
     public IRoleRepository                  Roles                  { get; }
     public ICompanySettingsRepository       CompanySettings        { get; }
+    public IGlobalConfigRepository          GlobalConfigs          { get; }
+    public IAllowanceTypeRepository         AllowanceTypes         { get; }
+    public ILeaveTypeRepository             LeaveTypes             { get; }
+    public IWorkScheduleRepository          WorkSchedules          { get; }
+    public IScheduleRuleRepository          ScheduleRules          { get; }
+    public IEmployeeScheduleRepository      EmployeeSchedules      { get; }
+    public ISalaryHistoryRepository         SalaryHistory          { get; }
+    public IAttendanceRepository            Attendances            { get; }
+    public IDeductionTypeRepository         DeductionTypes         { get; }
 
     public UnitOfWork(
         AppDbContext context,
@@ -30,9 +40,19 @@ public class UnitOfWork : IUnitOfWork
         IEmployeeDocumentRepository employeeDocuments,
         IBranchRepository branches,
         IPayrollRepository payrollRecords,
+        IPayPeriodRepository payPeriods,
         ILeaveRepository leave,
         IRoleRepository roles,
-        ICompanySettingsRepository companySettings)
+        ICompanySettingsRepository companySettings,
+        IGlobalConfigRepository globalConfigs,
+        IAllowanceTypeRepository allowanceTypes,
+        IWorkScheduleRepository workSchedules,
+        IScheduleRuleRepository scheduleRules,
+        IEmployeeScheduleRepository employeeSchedules,
+        ILeaveTypeRepository leaveTypes,
+        ISalaryHistoryRepository salaryHistory,
+        IAttendanceRepository attendances,
+        IDeductionTypeRepository deductionTypes)
     {
         _context              = context;
         Users                 = users;
@@ -42,9 +62,19 @@ public class UnitOfWork : IUnitOfWork
         EmployeeDocuments     = employeeDocuments;
         Branches              = branches;
         PayrollRecords        = payrollRecords;
+        PayPeriods            = payPeriods;
         Leave                 = leave;
         Roles                 = roles;
         CompanySettings       = companySettings;
+        GlobalConfigs         = globalConfigs;
+        AllowanceTypes        = allowanceTypes;
+        WorkSchedules         = workSchedules;
+        ScheduleRules         = scheduleRules;
+        EmployeeSchedules     = employeeSchedules;
+        LeaveTypes            = leaveTypes;
+        SalaryHistory         = salaryHistory;
+        Attendances           = attendances;
+        DeductionTypes        = deductionTypes;
     }
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default) =>

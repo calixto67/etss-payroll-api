@@ -87,4 +87,17 @@ public sealed class EmployeeDetailDto
     public IEnumerable<EmployeeStatusHistoryDto>    StatusHistory     { get; init; } = Enumerable.Empty<EmployeeStatusHistoryDto>();
     public IEnumerable<EmergencyContactDto>         EmergencyContacts { get; init; } = Enumerable.Empty<EmergencyContactDto>();
     public IEnumerable<EmployeeDocumentDto>         Documents         { get; init; } = Enumerable.Empty<EmployeeDocumentDto>();
+    public IEnumerable<SalaryHistoryDto>            SalaryHistory     { get; init; } = Enumerable.Empty<SalaryHistoryDto>();
+}
+
+public sealed class SalaryHistoryDto
+{
+    public int      Id              { get; init; }
+    public decimal  PreviousSalary  { get; init; }
+    public decimal  NewSalary       { get; init; }
+    public string   SalaryFrequency { get; init; } = string.Empty;
+    public DateTime EffectiveDate   { get; init; }
+    public string   ChangedBy       { get; init; } = string.Empty;
+    public DateTime ChangedAt       { get; init; }
+    public string?  Remarks         { get; init; }
 }

@@ -1,22 +1,39 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using PayrollApi.Application.Common.Models;
-using PayrollApi.Infrastructure.Data;
+using PayrollApi.Domain.Interfaces;
 
 namespace PayrollApi.API.Controllers.v1;
 
-public record DepartmentLookupDto(int Id, string Code, string Name);
-public record PositionLookupDto(int Id, string Code, string Title, int DepartmentId);
-public record BranchLookupDto(int Id, string Code, string Name);
+public class DepartmentLookupDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+}
+
+public class PositionLookupDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Title { get; set; } = "";
+    public int DepartmentId { get; set; }
+}
+
+public class BranchLookupDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+}
 
 [ApiVersion("1.0")]
 public class LookupsController : BaseController
 {
-    private readonly AppDbContext _db;
+    private readonly ISqlExecutor _sql;
 
-    public LookupsController(AppDbContext db) { _db = db; }
+    public LookupsController(ISqlExecutor sql) { _sql = sql; }
 
     /// <summary>Get all departments for dropdowns.</summary>
     [HttpGet("departments")]
@@ -24,12 +41,8 @@ public class LookupsController : BaseController
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<DepartmentLookupDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDepartments(CancellationToken cancellationToken)
     {
-        var data = await _db.Departments
-            .AsNoTracking()
-            .OrderBy(d => d.DepartmentName)
-            .Select(d => new DepartmentLookupDto(d.Id, d.DepartmentCode, d.DepartmentName))
-            .ToListAsync(cancellationToken);
-
+        var data = await _sql.QueryAsync<DepartmentLookupDto>(
+            "sp_Lookup", new { ActionType = "GET_DEPARTMENTS" }, cancellationToken);
         return Ok(ApiResponse<IEnumerable<DepartmentLookupDto>>.Ok(data));
     }
 
@@ -39,15 +52,8 @@ public class LookupsController : BaseController
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<PositionLookupDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPositions([FromQuery] int? departmentId, CancellationToken cancellationToken)
     {
-        var query = _db.Positions.AsNoTracking();
-        if (departmentId.HasValue)
-            query = query.Where(p => p.DepartmentId == departmentId.Value);
-
-        var data = await query
-            .OrderBy(p => p.PositionTitle)
-            .Select(p => new PositionLookupDto(p.Id, p.PositionCode, p.PositionTitle, p.DepartmentId))
-            .ToListAsync(cancellationToken);
-
+        var data = await _sql.QueryAsync<PositionLookupDto>(
+            "sp_Lookup", new { ActionType = "GET_POSITIONS", DepartmentId = departmentId }, cancellationToken);
         return Ok(ApiResponse<IEnumerable<PositionLookupDto>>.Ok(data));
     }
 
@@ -57,12 +63,8 @@ public class LookupsController : BaseController
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<BranchLookupDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetBranches(CancellationToken cancellationToken)
     {
-        var data = await _db.Branches
-            .AsNoTracking()
-            .OrderBy(b => b.BranchName)
-            .Select(b => new BranchLookupDto(b.Id, b.BranchCode, b.BranchName))
-            .ToListAsync(cancellationToken);
-
+        var data = await _sql.QueryAsync<BranchLookupDto>(
+            "sp_Lookup", new { ActionType = "GET_BRANCHES" }, cancellationToken);
         return Ok(ApiResponse<IEnumerable<BranchLookupDto>>.Ok(data));
     }
 }

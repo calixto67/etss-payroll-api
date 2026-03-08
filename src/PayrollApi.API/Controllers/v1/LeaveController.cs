@@ -78,6 +78,98 @@ public class LeaveController : BaseController
         return Ok(ApiResponse<IEnumerable<LeaveBalanceDto>>.Ok(result));
     }
 
+    // ── Balance Management ──────────────────────────────────────────
+
+    /// <summary>Create a leave balance (enroll an employee in a leave type).</summary>
+    [HttpPost("balances")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<LeaveBalanceDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateBalance(
+        [FromBody] CreateLeaveBalanceDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await _leaveService.CreateBalanceAsync(dto, CurrentUser, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created,
+            ApiResponse<LeaveBalanceDto>.Ok(result, "Leave balance created."));
+    }
+
+    /// <summary>Update a leave balance.</summary>
+    [HttpPut("balances/{id:int}")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<LeaveBalanceDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateBalance(
+        [FromRoute] int id,
+        [FromBody] UpdateLeaveBalanceDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await _leaveService.UpdateBalanceAsync(id, dto, CurrentUser, cancellationToken);
+        return Ok(ApiResponse<LeaveBalanceDto>.Ok(result, "Leave balance updated."));
+    }
+
+    /// <summary>Delete a leave balance.</summary>
+    [HttpDelete("balances/{id:int}")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteBalance(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        await _leaveService.DeleteBalanceAsync(id, CurrentUser, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Enroll all active employees in a leave type.</summary>
+    [HttpPost("balances/enroll-all")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> EnrollAllEmployees(
+        [FromBody] EnrollAllDto dto,
+        CancellationToken cancellationToken)
+    {
+        var count = await _leaveService.EnrollAllEmployeesAsync(dto, CurrentUser, cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { enrolled = count },
+            $"{count} employees enrolled in '{dto.LeaveType}'."));
+    }
+
+    // ── Year-End Processing ─────────────────────────────────────────
+
+    /// <summary>Get the last completed year-end batch info.</summary>
+    [HttpGet("year-end/last-batch")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<LeaveYearEndBatchDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetLastBatch(CancellationToken cancellationToken)
+    {
+        var result = await _leaveService.GetLastBatchAsync(cancellationToken);
+        return Ok(ApiResponse<LeaveYearEndBatchDto?>.Ok(result));
+    }
+
+    /// <summary>Run leave year-end processing.</summary>
+    [HttpPost("year-end/process")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<LeaveYearEndResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RunYearEndProcessing(
+        [FromBody] YearEndProcessRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _leaveService.RunYearEndProcessingAsync(request.Year, CurrentUser, cancellationToken);
+        return Ok(ApiResponse<LeaveYearEndResultDto>.Ok(result, result.Message));
+    }
+
+    /// <summary>Rollback the last year-end processing.</summary>
+    [HttpPost("year-end/rollback")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<LeaveYearEndResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RollbackYearEndProcessing(CancellationToken cancellationToken)
+    {
+        var result = await _leaveService.RollbackYearEndProcessingAsync(CurrentUser, cancellationToken);
+        return Ok(ApiResponse<LeaveYearEndResultDto>.Ok(result, result.Message));
+    }
+
     // ── Holidays ───────────────────────────────────────────────────
 
     /// <summary>Get all holidays.</summary>
@@ -120,3 +212,5 @@ public class LeaveController : BaseController
         return NoContent();
     }
 }
+
+public record YearEndProcessRequest(int Year);

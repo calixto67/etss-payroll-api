@@ -64,6 +64,16 @@ public class Employee : BaseEntity
     public string BankAccountNumber { get; set; } = string.Empty;
     public string BankName          { get; set; } = string.Empty;
 
+    // ── Government Mandate Contributions (per-employee, copied from defaults on creation) ──
+    /// <summary>SSS employee contribution amount, e.g. 900.</summary>
+    public decimal SssContribution { get; set; } = 900m;
+
+    /// <summary>PhilHealth employee contribution amount, e.g. 500.</summary>
+    public decimal PhilHealthContribution { get; set; } = 500m;
+
+    /// <summary>Pag-IBIG employee contribution amount, e.g. 200.</summary>
+    public decimal PagIbigContribution { get; set; } = 200m;
+
     // ── Profile ───────────────────────────────────────────────────────────────
     public string? ProfilePhotoPath { get; set; }
     public string? BiometricId      { get; set; }
@@ -84,6 +94,7 @@ public class Employee : BaseEntity
     public ICollection<EmployeeStatusHistory>     StatusHistory    { get; set; } = new List<EmployeeStatusHistory>();
     public ICollection<EmployeeEmergencyContact>  EmergencyContacts { get; set; } = new List<EmployeeEmergencyContact>();
     public ICollection<EmployeeDocument>          Documents        { get; set; } = new List<EmployeeDocument>();
+    public ICollection<SalaryHistory>              SalaryHistory    { get; set; } = new List<SalaryHistory>();
 }
 
 // ── Enumerations ──────────────────────────────────────────────────────────────

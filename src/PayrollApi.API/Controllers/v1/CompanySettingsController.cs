@@ -8,6 +8,7 @@ using PayrollApi.Application.Services.Interfaces;
 namespace PayrollApi.API.Controllers.v1;
 
 [ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/company-settings")]
 public class CompanySettingsController : BaseController
 {
     private readonly ICompanySettingsService _settingsService;
@@ -15,8 +16,9 @@ public class CompanySettingsController : BaseController
     public CompanySettingsController(ICompanySettingsService settingsService) =>
         _settingsService = settingsService;
 
-    /// <summary>Get company settings (name + logo URL). Available to all authenticated users.</summary>
+    /// <summary>Get company settings (name + logo URL). Available publicly so the login page can display company name.</summary>
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<CompanySettingsDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
@@ -49,6 +51,17 @@ public class CompanySettingsController : BaseController
         var url = await _settingsService.UploadLogoAsync(stream, logo.FileName, CurrentUser, ct);
 
         var settings = await _settingsService.GetAsync(ct);
+
         return Ok(ApiResponse<CompanySettingsDto>.Ok(settings, "Logo uploaded."));
+    }
+
+    /// <summary>Update government mandate default rates. Admin only.</summary>
+    [HttpPut("deductions")]
+    [Authorize(Policy = "PayrollAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<CompanySettingsDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateDeductions([FromBody] UpdateDeductionSettingsDto dto, CancellationToken ct)
+    {
+        var settings = await _settingsService.UpdateDeductionSettingsAsync(dto, CurrentUser, ct);
+        return Ok(ApiResponse<CompanySettingsDto>.Ok(settings, "Deduction settings updated."));
     }
 }

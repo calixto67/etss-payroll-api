@@ -10,7 +10,7 @@ public class LeaveApplication : BaseEntity
     public int DeductibleDays     { get; set; }
     public string Reason          { get; set; } = string.Empty;
     public LeaveApplicationStatus Status { get; set; } = LeaveApplicationStatus.Pending;
-    public DateTime SubmittedOn   { get; set; } = DateTime.UtcNow;
+    public DateTime SubmittedOn   { get; set; } = DateTime.Now;
     public string ApproverName    { get; set; } = string.Empty;
     public string? ApproverRemarks { get; set; }
 }

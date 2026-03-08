@@ -15,6 +15,8 @@ public class PayrollMappingProfile : Profile
             .ForMember(dest => dest.EmployeeCode, opt => opt.MapFrom(src =>
                 src.Employee != null ? src.Employee.EmployeeCode : string.Empty))
             .ForMember(dest => dest.PeriodCode, opt => opt.MapFrom(src =>
-                src.PayrollPeriod != null ? src.PayrollPeriod.PeriodCode : string.Empty));
+                src.PayrollPeriod != null ? src.PayrollPeriod.PeriodCode : string.Empty))
+            .ForMember(dest => dest.PeriodName, opt => opt.MapFrom(src =>
+                src.PayrollPeriod != null ? src.PayrollPeriod.Name : string.Empty));
     }
 }

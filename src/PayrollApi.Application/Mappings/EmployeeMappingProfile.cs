@@ -33,7 +33,8 @@ public class EmployeeMappingProfile : Profile
             .ForMember(d => d.BranchName,      o => o.MapFrom(s => s.Branch     != null ? s.Branch.BranchName        : null))
             .ForMember(d => d.StatusHistory,   o => o.MapFrom(s => s.StatusHistory))
             .ForMember(d => d.EmergencyContacts, o => o.MapFrom(s => s.EmergencyContacts))
-            .ForMember(d => d.Documents,       o => o.MapFrom(s => s.Documents));
+            .ForMember(d => d.Documents,       o => o.MapFrom(s => s.Documents))
+            .ForMember(d => d.SalaryHistory,   o => o.MapFrom(s => s.SalaryHistory));
 
         // ── CreateEmployeeDto → Employee ─────────────────────────────────────
         CreateMap<CreateEmployeeDto, Employee>()
@@ -57,7 +58,6 @@ public class EmployeeMappingProfile : Profile
             .ForMember(d => d.RegularizationDate,   o => o.Ignore())
             .ForMember(d => d.LastWorkingDate,      o => o.Ignore())
             .ForMember(d => d.ProfilePhotoPath,     o => o.Ignore())
-            .ForMember(d => d.BiometricId,          o => o.Ignore())
             .ForMember(d => d.Department,           o => o.Ignore())
             .ForMember(d => d.Position,             o => o.Ignore())
             .ForMember(d => d.Manager,              o => o.Ignore())
@@ -131,6 +131,9 @@ public class EmployeeMappingProfile : Profile
             .ForMember(d => d.UpdatedBy,  o => o.Ignore())
             .ForMember(d => d.DeletedAt,  o => o.Ignore())
             .ForMember(d => d.DeletedBy,  o => o.Ignore());
+
+        CreateMap<SalaryHistory, SalaryHistoryDto>()
+            .ForMember(d => d.SalaryFrequency, o => o.MapFrom(s => ((SalaryFrequency)s.SalaryFrequency).ToString()));
 
         CreateMap<EmployeeDocument, EmployeeDocumentDto>()
             .ForMember(d => d.DocumentType, o => o.MapFrom(s => s.DocumentType.ToString()));

@@ -23,6 +23,17 @@ public interface ILeaveRepository
     Task AddBalanceAsync(LeaveBalance balance, CancellationToken cancellationToken = default);
     Task UpdateBalanceAsync(LeaveBalance balance, CancellationToken cancellationToken = default);
 
+    Task<IEnumerable<LeaveBalance>> GetAllBalancesAsync(CancellationToken cancellationToken = default);
+    Task<bool> BalanceExistsAsync(string employeeCode, string leaveType, CancellationToken cancellationToken = default);
+    Task DeleteBalanceAsync(int id, string deletedBy, CancellationToken cancellationToken = default);
+    Task AddBalancesRangeAsync(IEnumerable<LeaveBalance> balances, CancellationToken cancellationToken = default);
+    Task RemoveBalancesRangeAsync(IEnumerable<LeaveBalance> balances, CancellationToken cancellationToken = default);
+
+    // Year-End Batches
+    Task<LeaveYearEndBatch?> GetLastCompletedBatchAsync(CancellationToken cancellationToken = default);
+    Task AddBatchAsync(LeaveYearEndBatch batch, CancellationToken cancellationToken = default);
+    Task UpdateBatchAsync(LeaveYearEndBatch batch, CancellationToken cancellationToken = default);
+
     // Holidays
     Task<IEnumerable<Holiday>> GetHolidaysAsync(
         string? search = null, string? type = null,

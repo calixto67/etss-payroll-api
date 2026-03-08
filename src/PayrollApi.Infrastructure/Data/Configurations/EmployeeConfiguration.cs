@@ -57,6 +57,11 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(e => e.BankAccountNumber).IsRequired().HasMaxLength(64);
         builder.Property(e => e.BankName).IsRequired().HasMaxLength(128);
 
+        // Government Mandate Contributions
+        builder.Property(e => e.SssContribution).HasColumnType("decimal(18,2)").HasDefaultValue(900m);
+        builder.Property(e => e.PhilHealthContribution).HasColumnType("decimal(18,2)").HasDefaultValue(500m);
+        builder.Property(e => e.PagIbigContribution).HasColumnType("decimal(18,2)").HasDefaultValue(200m);
+
         // Profile
         builder.Property(e => e.ProfilePhotoPath).HasMaxLength(500);
         builder.Property(e => e.BiometricId).HasMaxLength(50);

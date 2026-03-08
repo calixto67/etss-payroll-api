@@ -35,10 +35,21 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>();
         services.AddScoped<IBranchRepository, BranchRepository>();
         services.AddScoped<IPayrollRepository, PayrollRepository>();
+        services.AddScoped<IPayPeriodRepository, PayPeriodRepository>();
         services.AddScoped<ILeaveRepository, LeaveRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
+        services.AddScoped<IGlobalConfigRepository, GlobalConfigRepository>();
+        services.AddScoped<IAllowanceTypeRepository, AllowanceTypeRepository>();
+        services.AddScoped<ILeaveTypeRepository, LeaveTypeRepository>();
+        services.AddScoped<IWorkScheduleRepository, WorkScheduleRepository>();
+        services.AddScoped<IScheduleRuleRepository, ScheduleRuleRepository>();
+        services.AddScoped<IEmployeeScheduleRepository, EmployeeScheduleRepository>();
+        services.AddScoped<ISalaryHistoryRepository, SalaryHistoryRepository>();
+        services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+        services.AddScoped<IDeductionTypeRepository, DeductionTypeRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ISqlExecutor, SqlExecutor>();
 
         return services;
     }

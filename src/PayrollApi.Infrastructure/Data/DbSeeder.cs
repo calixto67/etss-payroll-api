@@ -22,7 +22,7 @@ public static class DbSeeder
                 Role      = "Admin",
                 IsActive  = true,
                 CreatedBy = "system",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
             });
 
             await context.SaveChangesAsync();

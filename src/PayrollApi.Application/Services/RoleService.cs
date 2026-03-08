@@ -1,7 +1,8 @@
+using System.Text.Json;
+using Microsoft.Data.SqlClient;
 using PayrollApi.Application.Common.Exceptions;
 using PayrollApi.Application.DTOs.Role;
 using PayrollApi.Application.Services.Interfaces;
-using PayrollApi.Domain.Entities;
 using PayrollApi.Domain.Interfaces;
 
 namespace PayrollApi.Application.Services;
@@ -16,146 +17,257 @@ public class RoleService : IRoleService
     {
         "dashboard", "pay-periods", "attendance", "payroll-run",
         "approvals", "payslips", "employees", "leave",
-        "reports", "setup", "user-roles"
+        "government-reports", "reports", "setup", "user-roles", "users",
+        "work-schedules"
     };
 
     private static readonly HashSet<string> AdminRoles = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Admin", "PayrollAdmin"
+        "Admin"
     };
 
-    private readonly IUnitOfWork _uow;
+    private const string SP = "sp_Role";
 
-    public RoleService(IUnitOfWork uow) => _uow = uow;
+    private readonly ISqlExecutor _sql;
+
+    public RoleService(ISqlExecutor sql) => _sql = sql;
+
+    // ── Internal row types for Dapper mapping ────────────────────────────
+
+    private sealed class RoleRow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public int UserCount { get; set; }
+    }
+
+    private sealed class RolePermissionRow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string ModuleKey { get; set; } = "";
+        public bool CanView { get; set; }
+        public bool CanAdd { get; set; }
+        public bool CanUpdate { get; set; }
+        public bool CanDelete { get; set; }
+    }
+
+    private sealed class ModulePermissionRow
+    {
+        public string ModuleKey { get; set; } = "";
+        public bool CanView { get; set; }
+        public bool CanAdd { get; set; }
+        public bool CanUpdate { get; set; }
+        public bool CanDelete { get; set; }
+    }
+
+    private sealed class RoleUserRow
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string SystemRole { get; set; } = "";
+    }
+
+    // ── Public methods ───────────────────────────────────────────────────
 
     public async Task<IEnumerable<RoleDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var roles = await _uow.Roles.GetAllWithPermissionsAsync(ct);
-        return roles.Select(ToDto);
+        try
+        {
+            var rows = await _sql.QueryAsync<RoleRow>(SP, new { ActionType = "GET_ALL" }, ct);
+            return rows.Select(r => new RoleDto
+            {
+                Id          = r.Id,
+                Name        = r.Name,
+                Description = r.Description,
+                UserCount   = r.UserCount,
+            });
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<RoleWithPermissionsDto> GetWithPermissionsAsync(int id, CancellationToken ct = default)
     {
-        var role = await _uow.Roles.GetWithPermissionsAsync(id, ct)
-            ?? throw new AppException($"Role {id} not found.");
-        return ToDetailDto(role);
+        try
+        {
+            // GET_WITH_PERMISSIONS returns a flat join of role + permissions (one row per permission)
+            var rows = await _sql.QueryAsync<RolePermissionRow>(
+                SP, new { ActionType = "GET_WITH_PERMISSIONS", Id = id }, ct);
+
+            var list = rows.ToList();
+            if (list.Count == 0)
+                throw new AppException($"Role {id} not found.");
+
+            var first = list[0];
+            return new RoleWithPermissionsDto
+            {
+                Id          = first.Id,
+                Name        = first.Name,
+                Description = first.Description,
+                Permissions = list
+                    .Where(r => !string.IsNullOrEmpty(r.ModuleKey))
+                    .Select(r => new ModulePermissionDto
+                    {
+                        ModuleKey = r.ModuleKey,
+                        CanView   = r.CanView,
+                        CanAdd    = r.CanAdd,
+                        CanUpdate = r.CanUpdate,
+                        CanDelete = r.CanDelete,
+                    }),
+            };
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<RoleDto> CreateAsync(CreateRoleDto dto, string createdBy, CancellationToken ct = default)
     {
-        if (!await _uow.Roles.IsNameUniqueAsync(dto.Name, cancellationToken: ct))
-            throw new AppException($"A role named '{dto.Name}' already exists.");
-
-        var role = new Role
+        try
         {
-            Name        = dto.Name.Trim(),
-            Description = dto.Description?.Trim(),
-            CreatedBy   = createdBy,
-        };
+            var row = await _sql.QueryFirstOrDefaultAsync<RoleRow>(SP, new
+            {
+                ActionType  = "CREATE",
+                Name        = dto.Name.Trim(),
+                Description = dto.Description?.Trim(),
+                CreatedBy   = createdBy,
+            }, ct) ?? throw new AppException("Failed to create role.");
 
-        await _uow.Roles.AddAsync(role, ct);
-        await _uow.CommitAsync(ct);
-        return ToDto(role);
+            return new RoleDto
+            {
+                Id          = row.Id,
+                Name        = row.Name,
+                Description = row.Description,
+                UserCount   = row.UserCount,
+            };
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<RoleDto> UpdateAsync(int id, UpdateRoleDto dto, string updatedBy, CancellationToken ct = default)
     {
-        var role = await _uow.Roles.GetByIdAsync(id, ct)
-            ?? throw new AppException($"Role {id} not found.");
+        try
+        {
+            var row = await _sql.QueryFirstOrDefaultAsync<RoleRow>(SP, new
+            {
+                ActionType  = "UPDATE",
+                Id          = id,
+                Name        = dto.Name.Trim(),
+                Description = dto.Description?.Trim(),
+                UpdatedBy   = updatedBy,
+            }, ct) ?? throw new AppException($"Role {id} not found.");
 
-        if (!await _uow.Roles.IsNameUniqueAsync(dto.Name, excludeId: id, cancellationToken: ct))
-            throw new AppException($"A role named '{dto.Name}' already exists.");
-
-        role.Name        = dto.Name.Trim();
-        role.Description = dto.Description?.Trim();
-        role.UpdatedAt   = DateTime.UtcNow;
-        role.UpdatedBy   = updatedBy;
-
-        await _uow.Roles.UpdateAsync(role, ct);
-        await _uow.CommitAsync(ct);
-        return ToDto(role);
+            return new RoleDto
+            {
+                Id          = row.Id,
+                Name        = row.Name,
+                Description = row.Description,
+                UserCount   = row.UserCount,
+            };
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task DeleteAsync(int id, string deletedBy, CancellationToken ct = default)
     {
-        var role = await _uow.Roles.GetByIdAsync(id, ct)
-            ?? throw new AppException($"Role {id} not found.");
-
-        _ = role; // existence confirmed
-        await _uow.Roles.DeleteAsync(id, deletedBy, ct);
-        await _uow.CommitAsync(ct);
+        try
+        {
+            await _sql.ExecuteAsync(SP, new
+            {
+                ActionType = "DELETE",
+                Id         = id,
+                DeletedBy  = deletedBy,
+            }, ct);
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<RoleWithPermissionsDto> UpdatePermissionsAsync(
         int id, UpdatePermissionsDto dto, string updatedBy, CancellationToken ct = default)
     {
-        var role = await _uow.Roles.GetWithPermissionsAsync(id, ct)
-            ?? throw new AppException($"Role {id} not found.");
-
-        var newPerms = dto.Permissions.Select(p => new RolePermission
+        try
         {
-            RoleId    = id,
-            ModuleKey = p.ModuleKey,
-            CanView   = p.CanView,
-            CanAdd    = p.CanAdd,
-            CanUpdate = p.CanUpdate,
-            CanDelete = p.CanDelete,
-            CreatedBy = updatedBy,
-        }).ToList();
+            var permissionsJson = JsonSerializer.Serialize(dto.Permissions);
 
-        await _uow.Roles.ReplacePermissionsAsync(id, newPerms, ct);
+            await _sql.ExecuteAsync(SP, new
+            {
+                ActionType      = "UPDATE_PERMISSIONS",
+                Id              = id,
+                PermissionsJson = permissionsJson,
+                UpdatedBy       = updatedBy,
+            }, ct);
 
-        role.UpdatedAt = DateTime.UtcNow;
-        role.UpdatedBy = updatedBy;
-        await _uow.Roles.UpdateAsync(role, ct);
-        await _uow.CommitAsync(ct);
-
-        var updated = await _uow.Roles.GetWithPermissionsAsync(id, ct)!;
-        return ToDetailDto(updated!);
+            // Return the updated role with permissions
+            return await GetWithPermissionsAsync(id, ct);
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<IEnumerable<RoleUserDto>> GetAllUsersAsync(CancellationToken ct = default)
     {
-        var users = await _uow.Users.GetAllActiveAsync(ct);
-        return users.Select(ToUserDto);
+        try
+        {
+            var rows = await _sql.QueryAsync<RoleUserRow>(SP, new { ActionType = "GET_ALL_USERS" }, ct);
+            return rows.Select(r => new RoleUserDto
+            {
+                Id         = r.Id,
+                Username   = r.Username,
+                Email      = r.Email,
+                Name       = r.Name,
+                SystemRole = r.SystemRole,
+            });
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<IEnumerable<RoleUserDto>> GetUsersForRoleAsync(int roleId, CancellationToken ct = default)
     {
-        var users = await _uow.Users.GetByRoleIdAsync(roleId, ct);
-        return users.Select(ToUserDto);
+        try
+        {
+            var rows = await _sql.QueryAsync<RoleUserRow>(
+                SP, new { ActionType = "GET_USERS_FOR_ROLE", Id = roleId }, ct);
+            return rows.Select(r => new RoleUserDto
+            {
+                Id         = r.Id,
+                Username   = r.Username,
+                Email      = r.Email,
+                Name       = r.Name,
+                SystemRole = r.SystemRole,
+            });
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task AssignUserAsync(int roleId, int userId, string assignedBy, CancellationToken ct = default)
     {
-        var role = await _uow.Roles.GetByIdAsync(roleId, ct)
-            ?? throw new AppException($"Role {roleId} not found.");
-
-        var users = await _uow.Users.FindAsync(u => u.Id == userId, ct);
-        var user  = users.FirstOrDefault()
-            ?? throw new AppException($"User {userId} not found.");
-
-        user.RoleId    = roleId;
-        user.UpdatedAt = DateTime.UtcNow;
-        user.UpdatedBy = assignedBy;
-        await _uow.Users.UpdateAsync(user, ct);
-        await _uow.CommitAsync(ct);
+        try
+        {
+            await _sql.ExecuteAsync(SP, new
+            {
+                ActionType = "ASSIGN_USER",
+                Id         = roleId,
+                UserId     = userId,
+                AssignedBy = assignedBy,
+            }, ct);
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task RemoveUserAsync(int roleId, int userId, string removedBy, CancellationToken ct = default)
     {
-        var users = await _uow.Users.FindAsync(u => u.Id == userId, ct);
-        var user  = users.FirstOrDefault()
-            ?? throw new AppException($"User {userId} not found.");
-
-        if (user.RoleId != roleId)
-            throw new AppException($"User {userId} is not assigned to role {roleId}.");
-
-        user.RoleId    = null;
-        user.UpdatedAt = DateTime.UtcNow;
-        user.UpdatedBy = removedBy;
-        await _uow.Users.UpdateAsync(user, ct);
-        await _uow.CommitAsync(ct);
+        try
+        {
+            await _sql.ExecuteAsync(SP, new
+            {
+                ActionType = "REMOVE_USER",
+                Id         = roleId,
+                UserId     = userId,
+                RemovedBy  = removedBy,
+            }, ct);
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
     }
 
     public async Task<Dictionary<string, ModulePermissionDto>> GetUserPermissionsAsync(
@@ -176,56 +288,22 @@ public class RoleService : IRoleService
                 });
         }
 
-        // Look up the user's assigned permission role
-        var users = await _uow.Users.FindAsync(u => u.Id == userId, ct);
-        var user  = users.FirstOrDefault();
-        if (user?.RoleId is null)
-            return new Dictionary<string, ModulePermissionDto>();
-
-        var perms = await _uow.Roles.GetPermissionsForRoleAsync(user.RoleId.Value, ct);
-        return perms.ToDictionary(
-            p => p.ModuleKey,
-            p => new ModulePermissionDto
-            {
-                ModuleKey = p.ModuleKey,
-                CanView   = p.CanView,
-                CanAdd    = p.CanAdd,
-                CanUpdate = p.CanUpdate,
-                CanDelete = p.CanDelete,
-            });
-    }
-
-    // ── Mappers ──────────────────────────────────────────────────────────────
-
-    private static RoleDto ToDto(Role r) => new()
-    {
-        Id          = r.Id,
-        Name        = r.Name,
-        Description = r.Description,
-        UserCount   = r.Users.Count,
-    };
-
-    private static RoleUserDto ToUserDto(Domain.Entities.User u) => new()
-    {
-        Id         = u.Id,
-        Username   = u.Username,
-        Email      = u.Email,
-        Name       = u.Username,
-        SystemRole = u.Role,
-    };
-
-    private static RoleWithPermissionsDto ToDetailDto(Role r) => new()
-    {
-        Id          = r.Id,
-        Name        = r.Name,
-        Description = r.Description,
-        Permissions = r.Permissions.Select(p => new ModulePermissionDto
+        try
         {
-            ModuleKey = p.ModuleKey,
-            CanView   = p.CanView,
-            CanAdd    = p.CanAdd,
-            CanUpdate = p.CanUpdate,
-            CanDelete = p.CanDelete,
-        }),
-    };
+            var rows = await _sql.QueryAsync<ModulePermissionRow>(
+                SP, new { ActionType = "GET_USER_PERMISSIONS", UserId = userId, UserRole = userRole }, ct);
+
+            return rows.ToDictionary(
+                r => r.ModuleKey,
+                r => new ModulePermissionDto
+                {
+                    ModuleKey = r.ModuleKey,
+                    CanView   = r.CanView,
+                    CanAdd    = r.CanAdd,
+                    CanUpdate = r.CanUpdate,
+                    CanDelete = r.CanDelete,
+                });
+        }
+        catch (SqlException ex) { throw new AppException(ex.Message); }
+    }
 }

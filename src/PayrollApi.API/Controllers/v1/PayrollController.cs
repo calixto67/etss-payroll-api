@@ -77,4 +77,14 @@ public class PayrollController : BaseController
         var result = await _payrollService.ReleaseAsync(id, CurrentUser, cancellationToken);
         return Ok(ApiResponse<PayrollRecordDto>.Ok(result, "Payroll record released."));
     }
+
+    /// <summary>Get all payroll records for a specific period.</summary>
+    [HttpGet("by-period/{periodId:int}")]
+    [Authorize(Policy = "PayrollViewer")]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<PayrollRecordDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetByPeriod([FromRoute] int periodId, CancellationToken cancellationToken)
+    {
+        var result = await _payrollService.GetByPeriodAsync(periodId, cancellationToken);
+        return Ok(ApiResponse<IEnumerable<PayrollRecordDto>>.Ok(result));
+    }
 }
