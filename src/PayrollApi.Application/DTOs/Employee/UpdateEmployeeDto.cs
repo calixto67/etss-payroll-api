@@ -9,6 +9,7 @@ public sealed class UpdateEmployeeDto
     public string? Suffix       { get; init; }
     public int     Gender       { get; init; }
     public int     MaritalStatus { get; init; }
+    public DateTime DateOfBirth  { get; init; }
 
     // Government IDs
     public string TaxIdentificationNumber { get; init; } = string.Empty;

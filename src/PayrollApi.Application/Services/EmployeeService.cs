@@ -588,6 +588,7 @@ public class EmployeeService : IEmployeeService
                     dto.Suffix,
                     dto.Gender,
                     dto.MaritalStatus,
+                    dto.DateOfBirth,
                     dto.TaxIdentificationNumber,
                     dto.SssNumber,
                     dto.PhilHealthNumber,
